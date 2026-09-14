@@ -10,12 +10,14 @@ function parseDatabaseUrlRobust(url) {
     if (rawPass.startsWith('<') && rawPass.endsWith('>')) {
       rawPass = rawPass.slice(1, -1);
     }
+    let dbName = m[5].split('?')[0] || 'test';
+    if (dbName === 'sys') dbName = 'test';
     return {
       user: decodeURIComponent(m[1]),
       password: rawPass,
       host: m[3],
       port: parseInt(m[4], 10) || 3306,
-      database: m[5].split('?')[0]
+      database: dbName
     };
   }
   try {
@@ -24,12 +26,14 @@ function parseDatabaseUrlRobust(url) {
     if (rawPass.startsWith('<') && rawPass.endsWith('>')) {
       rawPass = rawPass.slice(1, -1);
     }
+    let dbName = u.pathname.replace(/^\//, '').split('?')[0] || 'test';
+    if (dbName === 'sys') dbName = 'test';
     return {
       user: decodeURIComponent(u.username),
       password: rawPass,
       host: u.hostname,
       port: parseInt(u.port, 10) || 3306,
-      database: u.pathname.replace(/^\//, '').split('?')[0]
+      database: dbName
     };
   } catch (e) {
     return null;
