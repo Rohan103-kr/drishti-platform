@@ -6,9 +6,13 @@ function parseDatabaseUrlRobust(url) {
   // Match scheme, user, password (including special chars like @, #, etc.), host, port, db
   const m = url.match(/^mysql(?:2)?:\/\/([^:]+):(.*)@([^:/]+)(?::(\d+))?\/([^?]+)(?:\?(.*))?$/);
   if (m) {
+    let rawPass = m[2];
+    if (rawPass.startsWith('<') && rawPass.endsWith('>')) {
+      rawPass = rawPass.slice(1, -1);
+    }
     return {
       user: decodeURIComponent(m[1]),
-      password: m[2],
+      password: rawPass,
       host: m[3],
       port: parseInt(m[4], 10) || 3306,
       database: m[5].split('?')[0]
@@ -16,9 +20,13 @@ function parseDatabaseUrlRobust(url) {
   }
   try {
     const u = new URL(url);
+    let rawPass = decodeURIComponent(u.password);
+    if (rawPass.startsWith('<') && rawPass.endsWith('>')) {
+      rawPass = rawPass.slice(1, -1);
+    }
     return {
       user: decodeURIComponent(u.username),
-      password: decodeURIComponent(u.password),
+      password: rawPass,
       host: u.hostname,
       port: parseInt(u.port, 10) || 3306,
       database: u.pathname.replace(/^\//, '').split('?')[0]
