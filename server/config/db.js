@@ -1,22 +1,56 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+function parseDatabaseUrlRobust(url) {
+  if (!url) return null;
+  // Match scheme, user, password (including special chars like @, #, etc.), host, port, db
+  const m = url.match(/^mysql(?:2)?:\/\/([^:]+):(.*)@([^:/]+)(?::(\d+))?\/([^?]+)(?:\?(.*))?$/);
+  if (m) {
+    return {
+      user: decodeURIComponent(m[1]),
+      password: m[2],
+      host: m[3],
+      port: parseInt(m[4], 10) || 3306,
+      database: m[5].split('?')[0]
+    };
+  }
+  try {
+    const u = new URL(url);
+    return {
+      user: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+      host: u.hostname,
+      port: parseInt(u.port, 10) || 3306,
+      database: u.pathname.replace(/^\//, '').split('?')[0]
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 let poolConfig = {
   waitForConnections: true,
   connectionLimit: 50,
   queueLimit: 0,
 };
 
-if (process.env.DATABASE_URL) {
-  poolConfig.uri = process.env.DATABASE_URL;
+const parsedUrl = parseDatabaseUrlRobust(process.env.DATABASE_URL);
+
+if (parsedUrl) {
+  poolConfig.host = parsedUrl.host;
+  poolConfig.port = parsedUrl.port;
+  poolConfig.user = parsedUrl.user;
+  poolConfig.password = parsedUrl.password;
+  poolConfig.database = parsedUrl.database;
   poolConfig.ssl = { minVersion: 'TLSv1.2', rejectUnauthorized: false };
+  console.log(`🔌 Configuring Database connection to ${parsedUrl.host}:${parsedUrl.port} (DB: ${parsedUrl.database}, User: ${parsedUrl.user})`);
 } else {
   poolConfig.host = process.env.DB_HOST || 'localhost';
   poolConfig.user = process.env.DB_USER || 'root';
   poolConfig.password = process.env.DB_PASSWORD || '';
   poolConfig.database = process.env.DB_NAME || 'drishti_db';
   poolConfig.port = parseInt(process.env.DB_PORT, 10) || 3306;
-  if (process.env.DB_SSL === 'true') {
+  if (process.env.DB_SSL === 'true' || poolConfig.host !== 'localhost') {
     poolConfig.ssl = { minVersion: 'TLSv1.2', rejectUnauthorized: false };
   }
 }
