@@ -1,6 +1,40 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
 import Toast from '../components/Toast';
+import { 
+  Film, 
+  Calendar, 
+  MapPin, 
+  Ticket, 
+  Phone, 
+  ExternalLink, 
+  Sparkles, 
+  Maximize2, 
+  X, 
+  HeartHandshake, 
+  Users,
+  Compass
+} from 'lucide-react';
+
+function InstagramIcon({ size = 18, color = "#e1306c" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
+
+function LinkedinIcon({ size = 18, color = "#0a66c2" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+      <rect width="4" height="12" x="2" y="9" />
+      <circle cx="4" cy="4" r="2" />
+    </svg>
+  );
+}
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -34,6 +68,7 @@ export default function Home() {
   const [toast, setToast] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [showPosterModal, setShowPosterModal] = useState(false);
   const fileInputRef = useRef(null);
 
   const validate = () => {
@@ -81,7 +116,6 @@ export default function Home() {
 
     setLoading(true);
     try {
-      // Use FormData for file upload
       const submitData = new FormData();
       submitData.append('name', formData.name);
       submitData.append('roll_number', formData.roll_number);
@@ -114,23 +148,41 @@ export default function Home() {
     <>
       {/* Hero Section */}
       <section className="hero" id="hero">
-        <div className="hero-badge">
-          <span className="hero-badge-dot"></span>
-          <span>VE Cell • AKGEC Ghaziabad</span>
+        {/* Official Society & College Badge */}
+        <div className="hero-society-badge">
+          <img src="/akgec_logo.png" alt="AKGEC Crest" className="society-badge-logo" />
+          <span className="society-badge-text">Ajay Kumar Garg Engineering College</span>
+          <span className="society-badge-sep">•</span>
+          <img src="/ve_cell_logo.png" alt="VE Cell Logo" className="society-badge-logo" />
+          <span className="society-badge-text highlight">Value Education Cell</span>
         </div>
 
         <h1 className="hero-title">DRISHTI</h1>
 
+        <div className="hero-tagline">
+          🎬 A VALUE BASED SHORT FILM EVENT
+        </div>
+
         <p className="hero-subtitle">
-          A transformative event by the Value Education Cell, fostering individual growth and societal consciousness through shared learning experiences.
+          "Small stories make a big difference • Stories that inspire change." Fostering individual growth, perspective shifts, and societal consciousness through shared cinematic learning experiences.
         </p>
+
+        <div className="hero-motto-pills">
+          <span>People</span>
+          <span>•</span>
+          <span>Values</span>
+          <span>•</span>
+          <span>Perspectives</span>
+          <span>•</span>
+          <span>A Brighter Tomorrow</span>
+        </div>
 
         <div className="hero-cta">
           <a href="#register" className="btn btn-primary btn-lg">
-            Register Now — ₹60
+            Register Now — ₹50
           </a>
-          <a href="https://www.akgec.ac.in/ve-cell/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg">
-            About VE Cell ↗
+          <a href="#poster" className="btn btn-secondary btn-lg">
+            View Event Poster 🎬
           </a>
         </div>
 
@@ -138,17 +190,84 @@ export default function Home() {
           <div className="hero-info-card">
             <div className="hero-info-icon">📍</div>
             <div className="hero-info-label">Venue</div>
-            <div className="hero-info-value">AKGEC Campus</div>
+            <div className="hero-info-value">CSIT Seminar Hall</div>
           </div>
           <div className="hero-info-card">
-            <div className="hero-info-icon">💰</div>
-            <div className="hero-info-label">Entry Fee</div>
-            <div className="hero-info-value">₹60 Only</div>
+            <div className="hero-info-icon">⏰</div>
+            <div className="hero-info-label">Date & Time</div>
+            <div className="hero-info-value">10th Oct • 04:00 PM</div>
           </div>
           <div className="hero-info-card">
-            <div className="hero-info-icon">🎓</div>
-            <div className="hero-info-label">For</div>
-            <div className="hero-info-value">All Students</div>
+            <div className="hero-info-icon">🎟️</div>
+            <div className="hero-info-label">Entry Ticket</div>
+            <div className="hero-info-value">₹50 Only</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Official Poster Showcase Section */}
+      <section className="poster-showcase-section" id="poster">
+        <div className="section-header animate-fade-in-up" style={{ marginBottom: '36px' }}>
+          <div className="section-tag" style={{ background: 'rgba(217, 70, 239, 0.12)', color: 'var(--accent-primary)', borderColor: 'var(--border-accent)' }}>
+            Official Event Poster
+          </div>
+          <h2 className="section-title">Stories That Inspire Change</h2>
+          <p className="section-subtitle">
+            Presented by Value Education Cell (VE Cell), Ajay Kumar Garg Engineering College, Ghaziabad
+          </p>
+        </div>
+
+        <div className="poster-grid">
+          {/* Poster Image Card */}
+          <div className="poster-preview-card" onClick={() => setShowPosterModal(true)}>
+            <img 
+              src="/drishti_poster.jpg" 
+              alt="Drishti Official Event Poster" 
+              className="poster-preview-img"
+            />
+            <div className="poster-preview-overlay">
+              <div className="poster-preview-badge">
+                <Maximize2 size={15} /> Click to Enlarge Poster
+              </div>
+            </div>
+          </div>
+
+          {/* Poster Details & Themes */}
+          <div className="poster-info-box">
+            <p className="poster-tagline-quote">
+              "Different Perspectives, A Kinder World — Lights, Stories, Action!"
+            </p>
+
+            <div className="poster-highlights-list">
+              <div className="poster-highlight-item">
+                <Film className="icon" size={20} />
+                <span><strong>Curated Short Film Screenings:</strong> Deep human narratives addressing empathy, ethical dilemmas, and awareness.</span>
+              </div>
+
+              <div className="poster-highlight-item">
+                <Sparkles className="icon" size={20} />
+                <span><strong>Speed Quiz Arena:</strong> Real-time competitive quiz round testing comprehension and values with live podium standings.</span>
+              </div>
+
+              <div className="poster-highlight-item">
+                <HeartHandshake className="icon" size={20} />
+                <span><strong>Open Floor Dialogue:</strong> Interactive group reflection exploring universal human values and harmonious co-existence.</span>
+              </div>
+
+              <div className="poster-highlight-item">
+                <Ticket className="icon" size={20} />
+                <span><strong>Official Entry Pass:</strong> Verified QR code entry pass with official certificate for all registered attendees.</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+              <a href="#register" className="btn btn-primary">
+                Book Your Seat (₹50)
+              </a>
+              <a href="https://www.akgec.ac.in/ve-cell/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Learn About VE Cell ↗
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -156,16 +275,16 @@ export default function Home() {
       {/* Registration Section */}
       <section className="register-section" id="register">
         <div className="section-header animate-fade-in-up">
-          <div className="section-tag">Registration</div>
+          <div className="section-tag">Secure Your Entry</div>
           <h2 className="section-title">Register for Drishti</h2>
-          <p className="section-subtitle">Pay via UPI, upload screenshot, and fill in your details to secure your spot.</p>
+          <p className="section-subtitle">Pay ₹50 via UPI, upload your payment confirmation screenshot, and receive your verified entry QR pass.</p>
         </div>
 
         <div className="register-container">
           {/* Form Card */}
           <div className="form-card animate-fade-in-up stagger-1" style={{ opacity: 0 }}>
             <h3 className="form-card-title">Student Details</h3>
-            <p className="form-card-subtitle">Enter your information as per university records</p>
+            <p className="form-card-subtitle">Enter your official AKGEC university credentials</p>
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -233,7 +352,7 @@ export default function Home() {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="phone">Phone Number</label>
+                <label className="form-label" htmlFor="phone">Phone Number (WhatsApp)</label>
                 <input
                   id="phone"
                   type="tel"
@@ -264,10 +383,10 @@ export default function Home() {
               {/* Payment Proof Section */}
               <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '24px 0 20px', paddingTop: '24px' }}>
                 <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, marginBottom: '4px', color: 'var(--accent-primary)' }}>
-                  💳 Payment Proof
+                  💳 Payment Proof (₹50 Entry Fee)
                 </h4>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                  After paying ₹60 via UPI, upload the payment screenshot
+                  After paying ₹50 via UPI to the official coordinator QR, upload the transaction confirmation screenshot
                 </p>
               </div>
 
@@ -337,7 +456,7 @@ export default function Home() {
                   onChange={handleChange}
                 />
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  💡 Find this in your UPI app's transaction history
+                  💡 Find this in your UPI app transaction summary
                 </div>
               </div>
 
@@ -348,7 +467,7 @@ export default function Home() {
                     <span>Registering...</span>
                   </>
                 ) : (
-                  'Complete Registration'
+                  'Complete Registration (₹50)'
                 )}
               </button>
             </form>
@@ -356,12 +475,12 @@ export default function Home() {
 
           {/* Payment Card */}
           <div className="payment-card animate-fade-in-up stagger-2" style={{ opacity: 0 }}>
-            <h3 className="payment-card-title">Payment</h3>
-            <p className="payment-card-subtitle">Scan the QR code to pay via UPI</p>
+            <h3 className="payment-card-title">Event Payment</h3>
+            <p className="payment-card-subtitle">Scan the QR code to pay ₹50 via any UPI app</p>
 
             <div className="payment-amount">
               <span className="payment-amount-currency">₹</span>
-              <span className="payment-amount-value">60</span>
+              <span className="payment-amount-value">50</span>
             </div>
 
             <div className="payment-qr-container">
@@ -381,38 +500,179 @@ export default function Home() {
             </div>
 
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Pay to: <strong style={{ color: 'var(--text-primary)' }}>VIJAY KUMAR</strong>
+              Pay to: <strong style={{ color: 'var(--text-primary)' }}>VIJAY KUMAR (Coordinator)</strong>
             </div>
 
             <div className="payment-steps">
               <div className="payment-step">
                 <span className="payment-step-number">1</span>
-                <span className="payment-step-text">Open any UPI app (Google Pay, PhonePe, Paytm, etc.)</span>
+                <span className="payment-step-text">Open Google Pay, PhonePe, Paytm, or any UPI app</span>
               </div>
               <div className="payment-step">
                 <span className="payment-step-number">2</span>
-                <span className="payment-step-text">Scan the QR code above and pay <strong>₹60</strong></span>
+                <span className="payment-step-text">Scan the QR above and pay <strong>₹50</strong></span>
               </div>
               <div className="payment-step">
                 <span className="payment-step-number">3</span>
-                <span className="payment-step-text"><strong>Take a screenshot</strong> of the payment confirmation</span>
+                <span className="payment-step-text"><strong>Take a clear screenshot</strong> of the success receipt</span>
               </div>
               <div className="payment-step">
                 <span className="payment-step-number">4</span>
-                <span className="payment-step-text">Fill in your details, <strong>upload the screenshot</strong>, and submit</span>
+                <span className="payment-step-text">Attach screenshot and submit your details</span>
               </div>
               <div className="payment-step">
                 <span className="payment-step-number">5</span>
-                <span className="payment-step-text">You'll receive a confirmation email with your <strong>entry QR code</strong></span>
+                <span className="payment-step-text">Receive your official <strong>Entry QR code pass</strong> on your email</span>
               </div>
             </div>
 
             <div className="payment-note">
-              💡 Your payment will be verified by the admin team using the screenshot. Once verified, your QR code becomes your entry pass!
+              💡 Your payment will be verified by the VE Cell admin team. Once verified, your QR code grants entry at the CSIT Seminar Hall!
             </div>
           </div>
         </div>
       </section>
+
+      {/* Society Coordinators & Footer */}
+      <footer className="society-footer">
+        <div className="footer-content">
+          {/* Column 1: Organization & Logos */}
+          <div className="footer-brand">
+            <div className="footer-logos-group">
+              <div className="footer-logo-circle" title="Ajay Kumar Garg Engineering College">
+                <img src="/akgec_logo.png" alt="AKGEC Crest" />
+              </div>
+              <div className="footer-logo-circle" title="Value Education Cell AKGEC">
+                <img src="/ve_cell_logo.png" alt="VE Cell Logo" />
+              </div>
+            </div>
+
+            <div>
+              <div className="footer-title">VALUE EDUCATION CELL</div>
+              <div className="footer-subtitle">Ajay Kumar Garg Engineering College, Ghaziabad</div>
+            </div>
+
+            <p className="footer-motto">
+              <em>"Existence is Co-Existence"</em> • Promoting universal human values, ethical leadership, and harmonious societal living.
+            </p>
+
+            <div className="footer-unai-badge">
+              <span>🌐</span> Partnered with United Nations Academic Impact
+            </div>
+          </div>
+
+          {/* Column 2: Event Coordinators (from Poster) */}
+          <div>
+            <div className="footer-heading">Student Coordinators</div>
+
+            <div className="footer-coordinator-card">
+              <div className="footer-coord-info">
+                <span className="footer-coord-name">Rishabh Kanaujiya</span>
+                <span className="footer-coord-role">Lead Coordinator • Drishti</span>
+              </div>
+              <a href="tel:7991905307" className="footer-coord-phone">
+                7991905307
+              </a>
+            </div>
+
+            <div className="footer-coordinator-card">
+              <div className="footer-coord-info">
+                <span className="footer-coord-name">Anchal Bijlani</span>
+                <span className="footer-coord-role">Lead Coordinator • Drishti</span>
+              </div>
+              <a href="tel:9555829146" className="footer-coord-phone">
+                9555829146
+              </a>
+            </div>
+
+            <div style={{ marginTop: '14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              For queries regarding registration or screening pass, contact coordinators.
+            </div>
+          </div>
+
+          {/* Column 3: Social Handles & Links */}
+          <div>
+            <div className="footer-heading">Connect With Us</div>
+
+            <div className="footer-social-links">
+              <a 
+                href="https://instagram.com/vecell_akgec" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="footer-social-link"
+              >
+                <InstagramIcon size={18} color="#e1306c" />
+                <span>@vecell_akgec</span>
+              </a>
+
+              <a 
+                href="https://linkedin.com/company/vecell-akgec" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="footer-social-link"
+              >
+                <LinkedinIcon size={18} color="#0a66c2" />
+                <span>VE Cell AKGEC</span>
+              </a>
+
+              <a 
+                href="https://www.akgec.ac.in/ve-cell/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="footer-social-link"
+              >
+                <ExternalLink size={18} color="var(--accent-primary)" />
+                <span>Official VE Cell Portal</span>
+              </a>
+
+              <a 
+                href="https://www.akgec.ac.in" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="footer-social-link"
+              >
+                <ExternalLink size={18} color="var(--akgec-gold)" />
+                <span>AKGEC University Website</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <div>
+            Ajay Kumar Garg Engineering College • 27th Km Milestone, Delhi-Meerut Expressway, Ghaziabad, UP 201009
+          </div>
+          <div style={{ color: 'var(--akgec-gold)', fontWeight: 600 }}>
+            "Be The Change You See"
+          </div>
+        </div>
+      </footer>
+
+      {/* Poster Enlarge Modal */}
+      {showPosterModal && (
+        <div className="modal-overlay" onClick={() => setShowPosterModal(false)}>
+          <div className="modal" style={{ maxWidth: '640px', padding: '16px', background: 'rgba(8, 9, 24, 0.98)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <img src="/ve_cell_logo.png" alt="VE Cell" style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'white' }} />
+                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Drishti Official Event Poster</span>
+              </div>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowPosterModal(false)}
+                style={{ position: 'static', width: '32px', height: '32px' }}
+              >
+                ✕
+              </button>
+            </div>
+            <img 
+              src="/drishti_poster.jpg" 
+              alt="Drishti Full Event Poster" 
+              style={{ width: '100%', height: 'auto', borderRadius: 'var(--radius-md)' }} 
+            />
+          </div>
+        </div>
+      )}
 
       {/* Success Modal */}
       {showSuccess && successData && (
@@ -422,7 +682,7 @@ export default function Home() {
             <div className="modal-icon">✓</div>
             <h3 className="modal-title">Registration Successful!</h3>
             <p className="modal-subtitle">
-              Your entry QR code has been sent to <strong>{successData.email}</strong>
+              Your entry QR pass has been sent to <strong>{successData.email}</strong>
             </p>
 
             {successData.qr_code && (
@@ -432,7 +692,7 @@ export default function Home() {
             )}
 
             <div className="modal-info">
-              📧 Check your email for the QR code. Your payment will be verified by the admin team. Show the QR at the venue for entry.
+              📧 Check your email for the pass. Show the QR at the CSIT Seminar Hall for event entry!
             </div>
           </div>
         </div>

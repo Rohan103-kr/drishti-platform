@@ -112,34 +112,27 @@ export default function QuizLanding() {
     <div className="quiz-page">
       <div className="quiz-container">
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            padding: '6px 16px', 
-            borderRadius: '9999px', 
-            background: 'rgba(233, 69, 96, 0.12)', 
-            border: '1px solid rgba(233, 69, 96, 0.3)',
-            color: 'var(--accent-primary)',
-            fontSize: '0.85rem',
-            fontWeight: '600',
-            marginBottom: '16px'
-          }}>
-            <Sparkles size={16} /> DRISHTI LIVE COMPETITION
+          <div className="hero-society-badge" style={{ marginBottom: '16px' }}>
+            <img src="/akgec_logo.png" alt="AKGEC Crest" className="society-badge-logo" />
+            <span className="society-badge-text">AKGEC Ghaziabad</span>
+            <span className="society-badge-sep">•</span>
+            <img src="/ve_cell_logo.png" alt="VE Cell Logo" className="society-badge-logo" />
+            <span className="society-badge-text highlight">Value Education Cell</span>
           </div>
+
           <h1 style={{ 
             fontFamily: 'var(--font-display)', 
             fontSize: '2.8rem', 
             fontWeight: '800', 
             marginBottom: '12px',
-            background: 'linear-gradient(135deg, #ffffff 0%, #a0a0b8 100%)',
+            background: 'linear-gradient(135deg, #ffffff 0%, #38bdf8 30%, #d946ef 65%, #f43f5e 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
             {quizStatus.title}
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', maxWidth: '650px', margin: '0 auto' }}>
-            Fast-paced speed quiz with strict real-time proctoring. Test your speed, accuracy, and core fundamentals.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', maxWidth: '650px', margin: '0 auto' }}>
+            Official Drishti speed quiz competition by VE Cell AKGEC. Test your speed, ethics, values, and comprehension.
           </p>
 
           <div className="quiz-landing-status-bar">

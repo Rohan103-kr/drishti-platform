@@ -76,6 +76,14 @@ export default function QuizLeaderboard() {
         </div>
 
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div className="hero-society-badge" style={{ marginBottom: '16px' }}>
+            <img src="/akgec_logo.png" alt="AKGEC Crest" className="society-badge-logo" />
+            <span className="society-badge-text">AKGEC Ghaziabad</span>
+            <span className="society-badge-sep">•</span>
+            <img src="/ve_cell_logo.png" alt="VE Cell Logo" className="society-badge-logo" />
+            <span className="society-badge-text highlight">Value Education Cell</span>
+          </div>
+
           <h1 style={{ 
             fontFamily: 'var(--font-display)', 
             fontSize: '2.8rem', 

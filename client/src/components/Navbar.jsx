@@ -146,17 +146,62 @@ export default function Navbar() {
                   </div>
                 </Link>
               )}
+
+              <div className="nav-dropdown-divider" />
+
+              <a 
+                href="https://www.akgec.ac.in/ve-cell/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="nav-dropdown-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                <div className="dropdown-item-icon" style={{ background: 'rgba(37, 99, 235, 0.15)', border: '1px solid rgba(37, 99, 235, 0.3)' }}>
+                  <img src="/ve_cell_logo.png" alt="VE Cell" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                </div>
+                <div className="dropdown-item-content">
+                  <span className="dropdown-item-title">About VE Cell ↗</span>
+                  <span className="dropdown-item-sub">Existence is Co-Existence</span>
+                </div>
+              </a>
             </div>
           )}
         </div>
 
         <Link to="/" className="navbar-brand">
-          <div className="navbar-brand-icon">D</div>
+          <div className="navbar-logos-group">
+            <img 
+              src="/akgec_logo.png" 
+              alt="Ajay Kumar Garg Engineering College Logo" 
+              className="navbar-college-logo"
+              title="Ajay Kumar Garg Engineering College"
+            />
+            <div className="navbar-logo-separator" />
+            <img 
+              src="/ve_cell_logo.png" 
+              alt="Value Education Cell AKGEC Logo" 
+              className="navbar-society-logo" 
+              title="Value Education Cell (VE Cell)"
+            />
+          </div>
           <div className="navbar-brand-text">
             <span className="navbar-brand-title">DRISHTI</span>
             <span className="navbar-brand-subtitle">VE Cell • AKGEC</span>
           </div>
         </Link>
+      </div>
+
+      <div className="navbar-right">
+        <a 
+          href="https://www.akgec.ac.in" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="nav-college-tag"
+          title="Ajay Kumar Garg Engineering College, Ghaziabad"
+        >
+          <span className="college-tag-dot" />
+          <span className="college-tag-text">AKGEC Ghaziabad</span>
+        </a>
       </div>
     </nav>
   );
