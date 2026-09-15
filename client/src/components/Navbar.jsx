@@ -14,6 +14,11 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Do not render global navbar during active quiz test to prevent header overlap
+  if (location.pathname === '/quiz/play') {
+    return null;
+  }
+
   return (
     <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
       <Link to="/" className="navbar-brand">

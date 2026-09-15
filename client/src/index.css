@@ -2266,9 +2266,9 @@ img, svg, video, canvas {
 
 @media (max-width: 640px) {
   .quiz-hud {
-    padding: 10px 12px;
+    padding: max(10px, env(safe-area-inset-top, 10px)) 12px 10px;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: space-between;
   }
   .hud-participant {
