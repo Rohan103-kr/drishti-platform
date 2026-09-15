@@ -350,25 +350,25 @@ export default function QuizHostAdmin() {
     <div className="quiz-page" style={{ paddingTop: '90px' }}>
       <div className="quiz-container">
         {/* Top Navigation Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div className="host-top-nav" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
           <Link to="/admin/dashboard" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
             <ArrowLeft size={16} /> Admin Dashboard
           </Link>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
               className="btn btn-secondary"
               onClick={handleExportCSV}
-              style={{ fontSize: '0.9rem' }}
+              style={{ fontSize: '0.88rem', padding: '8px 14px' }}
             >
-              <Download size={16} /> Export Results (CSV)
+              <Download size={16} /> Export (CSV)
             </button>
             <button
               className="btn btn-danger"
               onClick={handleReset}
-              style={{ fontSize: '0.9rem', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--error)', border: '1px solid var(--error)' }}
+              style={{ fontSize: '0.88rem', padding: '8px 14px', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--error)', border: '1px solid var(--error)' }}
             >
-              <RotateCcw size={16} /> Reset Submissions
+              <RotateCcw size={16} /> Reset
             </button>
           </div>
         </div>
@@ -504,7 +504,7 @@ export default function QuizHostAdmin() {
         </div>
 
         {/* Live Participants Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '18px', marginBottom: '32px' }}>
+        <div className="host-stats-grid">
           <div className="quiz-card" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
               <span>Online in Lobby</span>
@@ -664,7 +664,7 @@ export default function QuizHostAdmin() {
                     {q.question_text}
                   </h3>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  <div className="host-options-grid">
                     {[
                       { key: 'A', text: q.option_a },
                       { key: 'B', text: q.option_b },
@@ -841,7 +841,7 @@ export default function QuizHostAdmin() {
 
               {/* Options with 1-Click Correct Selection */}
               <div style={{ marginBottom: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                   <label className="form-label" style={{ margin: 0 }}>
                     Options (Click any option's button to set it as Correct Answer):
                   </label>

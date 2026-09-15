@@ -142,49 +142,27 @@ export default function QuizLanding() {
             Fast-paced speed quiz with strict real-time proctoring. Test your speed, accuracy, and core fundamentals.
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginTop: '20px' }}>
+          <div className="quiz-landing-status-bar">
             <span className={`live-indicator ${quizStatus.status}`}>
               <span className="dot" />
               {quizStatus.status === 'live' ? 'Competition is Live' : quizStatus.status === 'ended' ? 'Competition Ended' : 'Competition Waiting / Draft'}
             </span>
 
-            <span style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              color: 'var(--text-secondary)',
-              fontSize: '0.9rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              padding: '6px 14px',
-              borderRadius: '9999px',
-              border: '1px solid var(--border-subtle)'
-            }}>
+            <span className="quiz-status-pill">
               <Users size={16} color="var(--purple-accent)" />
               {stats.online} online | {quizStatus.total_submissions} submitted
             </span>
 
             <Link 
               to="/quiz/leaderboard" 
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: '#ffd700',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                background: 'rgba(255, 215, 0, 0.1)',
-                padding: '6px 14px',
-                borderRadius: '9999px',
-                border: '1px solid rgba(255, 215, 0, 0.3)'
-              }}
+              className="quiz-status-pill pill-leaderboard"
             >
               <Trophy size={16} /> View Leaderboard
             </Link>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1.2fr) minmax(300px, 1fr)', gap: '32px' }}>
+        <div className="quiz-landing-grid">
           {/* Registration Box */}
           <div className="quiz-card">
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', marginBottom: '8px' }}>

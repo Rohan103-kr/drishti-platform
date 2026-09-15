@@ -314,21 +314,20 @@ export default function QuizActive() {
           <span>{formatTime(timeLeft)}</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ textAlign: 'right', display: 'none', md: 'block' }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Answered</div>
-            <div style={{ fontWeight: '700', color: 'var(--success)' }}>
+        <div className="hud-actions">
+          <div className="hud-answered-stat">
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Answered</div>
+            <div style={{ fontWeight: '700', color: 'var(--success)', fontSize: '0.95rem' }}>
               {answeredCount} / {totalQuestions}
             </div>
           </div>
 
           <button
-            className="btn btn-primary"
-            style={{ padding: '8px 18px', fontSize: '0.9rem' }}
+            className="btn btn-primary hud-submit-btn"
             onClick={() => setConfirmSubmitOpen(true)}
             disabled={submitting}
           >
-            <Send size={16} /> Submit Test
+            <Send size={16} /> <span>Submit</span>
           </button>
         </div>
       </div>
@@ -338,12 +337,12 @@ export default function QuizActive() {
         {/* Anti-Cheat Reminder Notice */}
         <div className="cheat-banner">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertOctagon size={20} color="var(--error)" />
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-              <strong>Active Proctoring:</strong> Switching tabs or pressing the browser back button will immediately auto-submit your test.
+            <AlertOctagon size={20} color="var(--error)" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+              <strong>Active Proctoring:</strong> Switching tabs or pressing browser back will auto-submit your test.
             </span>
           </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <span className="cheat-badge-desktop" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             Auto-save active
           </span>
         </div>
@@ -383,7 +382,7 @@ export default function QuizActive() {
                       <span className="option-key">{opt.key}</span>
                       <span className="option-label">{opt.text}</span>
                       {isSelected && (
-                        <CheckCircle2 size={20} color="var(--accent-primary)" style={{ marginLeft: 'auto' }} />
+                        <CheckCircle2 size={20} color="var(--accent-primary)" style={{ marginLeft: 'auto', flexShrink: 0 }} />
                       )}
                     </button>
                   );
@@ -391,14 +390,7 @@ export default function QuizActive() {
               </div>
 
               {/* Prev / Next Bottom Controls */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                marginTop: '40px',
-                paddingTop: '20px',
-                borderTop: '1px solid var(--border-subtle)'
-              }}>
+              <div className="question-bottom-nav">
                 <button
                   className="btn btn-secondary"
                   disabled={currentIndex === 0}
@@ -413,7 +405,7 @@ export default function QuizActive() {
                     className="btn btn-primary"
                     onClick={() => setCurrentIndex((prev) => prev + 1)}
                   >
-                    Next Question <ChevronRight size={18} />
+                    Next <ChevronRight size={18} />
                   </button>
                 ) : (
                   <button

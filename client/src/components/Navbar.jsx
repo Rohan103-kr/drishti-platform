@@ -24,46 +24,46 @@ export default function Navbar() {
         </div>
       </Link>
 
-      <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="navbar-actions">
         <Link 
           to="/quiz" 
-          className="btn-admin" 
+          className="btn-admin nav-quiz-btn" 
           style={{ 
             background: location.pathname.startsWith('/quiz') ? 'rgba(233, 69, 96, 0.2)' : 'rgba(255, 255, 255, 0.05)',
             borderColor: location.pathname.startsWith('/quiz') ? 'var(--accent-primary)' : 'var(--border-medium)'
           }}
         >
           <span>⚡</span>
-          <span>Quiz Arena</span>
+          <span className="nav-btn-text">Quiz Arena</span>
         </Link>
 
         <Link 
           to="/quiz/leaderboard" 
-          className="btn-admin"
+          className="btn-admin nav-leaderboard-btn"
           style={{ 
             background: location.pathname === '/quiz/leaderboard' ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
             borderColor: location.pathname === '/quiz/leaderboard' ? '#ffd700' : 'var(--border-medium)'
           }}
         >
           <span>🏆</span>
-          <span>Leaderboard</span>
+          <span className="nav-btn-text">Leaderboard</span>
         </Link>
 
         {isAdmin ? (
           <>
-            <Link to="/admin/quiz-host" className="btn-admin" style={{ background: 'rgba(124, 58, 237, 0.2)', borderColor: 'var(--purple-accent)' }}>
+            <Link to="/admin/quiz-host" className="btn-admin nav-host-btn" style={{ background: 'rgba(124, 58, 237, 0.2)', borderColor: 'var(--purple-accent)' }}>
               <span>🎯</span>
-              <span>Host Panel</span>
+              <span className="nav-btn-text">Host Panel</span>
             </Link>
-            <Link to="/admin/dashboard" className="btn-admin">
+            <Link to="/admin/dashboard" className="btn-admin nav-reg-btn">
               <span>📊</span>
-              <span>Registrations</span>
+              <span className="nav-btn-text">Registrations</span>
             </Link>
           </>
         ) : (
-          <Link to="/admin" className="btn-admin">
+          <Link to="/admin" className="btn-admin nav-admin-btn">
             <span>🔐</span>
-            <span>Admin</span>
+            <span className="nav-btn-text">Admin</span>
           </Link>
         )}
       </div>

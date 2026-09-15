@@ -96,12 +96,7 @@ export default function QuizResult() {
           )}
 
           {/* Stats Grid */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '16px',
-            marginBottom: '36px'
-          }}>
+          <div className="quiz-result-stats-grid">
             <div style={{
               background: 'rgba(255, 255, 255, 0.03)',
               border: '1px solid var(--border-medium)',
