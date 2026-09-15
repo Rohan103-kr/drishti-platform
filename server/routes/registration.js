@@ -35,6 +35,16 @@ const upload = multer({
   },
 });
 
+// Helper to generate a unique readable pass code (e.g. DRISHTI-7K2M9P)
+function generatePassCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `DRISHTI-${code}`;
+}
+
 // POST /api/register - Register a new student
 router.post('/', upload.single('payment_screenshot'), async (req, res) => {
   try {
@@ -71,43 +81,42 @@ router.post('/', upload.single('payment_screenshot'), async (req, res) => {
       return res.status(409).json({ error: 'This roll number is already registered.' });
     }
 
-    // Generate unique QR token
+    // Generate unique QR token and unique human-readable pass code
     const qrToken = uuidv4();
+    let passCode = generatePassCode();
 
-    // Generate QR code
-    const { qrDataUrl } = await generateQRCode(qrToken);
-    const qrBuffer = await generateQRBuffer(qrToken);
+    // Check for rare duplicate pass code
+    try {
+      const [dup] = await pool.execute('SELECT id FROM registrations WHERE pass_code = ?', [passCode]);
+      if (dup.length > 0) passCode = generatePassCode();
+    } catch (e) {}
+
+    // Generate QR code with passCode
+    const { qrDataUrl } = await generateQRCode(qrToken, passCode);
+    const qrBuffer = await generateQRBuffer(qrToken, passCode);
 
     // Payment screenshot path
     const screenshotPath = `/uploads/${req.file.filename}`;
 
-    // Insert into database
+    // Insert into database with payment_verified = FALSE
     await pool.execute(
-      `INSERT INTO registrations (name, roll_number, branch, section, phone, email, payment_screenshot, utr_number, qr_token, qr_data_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, roll_number, branch, section, phone, email, screenshotPath, utr_number || null, qrToken, qrDataUrl]
+      `INSERT INTO registrations (name, roll_number, branch, section, phone, email, payment_screenshot, utr_number, qr_token, pass_code, qr_data_url, payment_verified)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)`,
+      [name, roll_number, branch, section, phone, email, screenshotPath, utr_number || null, qrToken, passCode, qrDataUrl]
     );
 
-    // Send confirmation email (non-blocking - don't fail registration if email fails)
-    try {
-      await sendConfirmationEmail(
-        { name, roll_number, branch, section, email, qr_token: qrToken },
-        qrBuffer
-      );
-    } catch (emailErr) {
-      console.error('Email sending failed:', emailErr.message);
-      // Registration still succeeds even if email fails
-    }
+    // Note: Confirmation email with QR is NOT sent now.
+    // It will be sent when the admin verifies the payment screenshot in the Admin Panel.
 
     res.status(201).json({
-      message: 'Registration successful! Check your email for the QR code.',
+      message: 'Registration submitted! Your payment is pending verification. Once approved, your official Entry QR pass will be sent to your email.',
       registration: {
         name,
         roll_number,
         branch,
         section,
         email,
-        qr_code: qrDataUrl,
+        payment_verified: false,
       },
     });
   } catch (err) {
@@ -125,8 +134,8 @@ router.get('/verify-qr/:token', async (req, res) => {
     const { token } = req.params;
 
     const [rows] = await pool.execute(
-      'SELECT id, name, roll_number, branch, section, qr_expired, verified_at FROM registrations WHERE qr_token = ?',
-      [token]
+      'SELECT id, name, roll_number, branch, section, pass_code, qr_expired, verified_at FROM registrations WHERE qr_token = ? OR pass_code = ?',
+      [token, token]
     );
 
     if (rows.length === 0) {
@@ -146,6 +155,7 @@ router.get('/verify-qr/:token', async (req, res) => {
           roll_number: registration.roll_number,
           branch: registration.branch,
           section: registration.section,
+          pass_code: registration.pass_code,
         },
       });
     }
@@ -158,6 +168,7 @@ router.get('/verify-qr/:token', async (req, res) => {
         roll_number: registration.roll_number,
         branch: registration.branch,
         section: registration.section,
+        pass_code: registration.pass_code,
       },
     });
   } catch (err) {

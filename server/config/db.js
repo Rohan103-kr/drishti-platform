@@ -109,12 +109,36 @@ async function initializeDatabase() {
       payment_screenshot VARCHAR(500) DEFAULT NULL,
       utr_number VARCHAR(100) DEFAULT NULL,
       qr_token VARCHAR(100) NOT NULL UNIQUE,
+      pass_code VARCHAR(50) DEFAULT NULL UNIQUE,
       qr_data_url LONGTEXT,
+      payment_verified BOOLEAN DEFAULT FALSE,
+      payment_verified_at DATETIME DEFAULT NULL,
+      gate_checked_in BOOLEAN DEFAULT FALSE,
+      gate_checked_in_at DATETIME DEFAULT NULL,
       qr_expired BOOLEAN DEFAULT FALSE,
       verified_at DATETIME DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  try {
+    const [cols] = await pool.execute(`SHOW COLUMNS FROM registrations LIKE 'pass_code'`);
+    if (cols.length === 0) {
+      await pool.execute(`ALTER TABLE registrations ADD COLUMN pass_code VARCHAR(50) DEFAULT NULL UNIQUE`);
+    }
+    const [pvCols] = await pool.execute(`SHOW COLUMNS FROM registrations LIKE 'payment_verified'`);
+    if (pvCols.length === 0) {
+      await pool.execute(`ALTER TABLE registrations ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE`);
+      await pool.execute(`ALTER TABLE registrations ADD COLUMN payment_verified_at DATETIME DEFAULT NULL`);
+    }
+    const [gcCols] = await pool.execute(`SHOW COLUMNS FROM registrations LIKE 'gate_checked_in'`);
+    if (gcCols.length === 0) {
+      await pool.execute(`ALTER TABLE registrations ADD COLUMN gate_checked_in BOOLEAN DEFAULT FALSE`);
+      await pool.execute(`ALTER TABLE registrations ADD COLUMN gate_checked_in_at DATETIME DEFAULT NULL`);
+    }
+  } catch (err) {
+    // ignore
+  }
 
   // Quiz Competition Tables
   await pool.execute(`

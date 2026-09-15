@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import Toast from '../components/Toast';
 import { 
@@ -9,8 +10,6 @@ import {
   Phone, 
   ExternalLink, 
   Sparkles, 
-  Maximize2, 
-  X, 
   HeartHandshake, 
   Users,
   Compass
@@ -68,7 +67,6 @@ export default function Home() {
   const [toast, setToast] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
-  const [showPosterModal, setShowPosterModal] = useState(false);
   const fileInputRef = useRef(null);
 
   const validate = () => {
@@ -179,11 +177,11 @@ export default function Home() {
 
         <div className="hero-cta">
           <a href="#register" className="btn btn-primary btn-lg">
-            Register Now — ₹50
+            Register Now — ₹60
           </a>
-          <a href="#poster" className="btn btn-secondary btn-lg">
-            View Event Poster 🎬
-          </a>
+          <Link to="/quiz" className="btn btn-secondary btn-lg">
+            Speed Quiz Arena ⚡
+          </Link>
         </div>
 
         <div className="hero-info-grid">
@@ -200,74 +198,7 @@ export default function Home() {
           <div className="hero-info-card">
             <div className="hero-info-icon">🎟️</div>
             <div className="hero-info-label">Entry Ticket</div>
-            <div className="hero-info-value">₹50 Only</div>
-          </div>
-        </div>
-      </section>
-
-      {/* Official Poster Showcase Section */}
-      <section className="poster-showcase-section" id="poster">
-        <div className="section-header animate-fade-in-up" style={{ marginBottom: '36px' }}>
-          <div className="section-tag" style={{ background: 'rgba(217, 70, 239, 0.12)', color: 'var(--accent-primary)', borderColor: 'var(--border-accent)' }}>
-            Official Event Poster
-          </div>
-          <h2 className="section-title">Stories That Inspire Change</h2>
-          <p className="section-subtitle">
-            Presented by Value Education Cell (VE Cell), Ajay Kumar Garg Engineering College, Ghaziabad
-          </p>
-        </div>
-
-        <div className="poster-grid">
-          {/* Poster Image Card */}
-          <div className="poster-preview-card" onClick={() => setShowPosterModal(true)}>
-            <img 
-              src="/drishti_poster.jpg" 
-              alt="Drishti Official Event Poster" 
-              className="poster-preview-img"
-            />
-            <div className="poster-preview-overlay">
-              <div className="poster-preview-badge">
-                <Maximize2 size={15} /> Click to Enlarge Poster
-              </div>
-            </div>
-          </div>
-
-          {/* Poster Details & Themes */}
-          <div className="poster-info-box">
-            <p className="poster-tagline-quote">
-              "Different Perspectives, A Kinder World — Lights, Stories, Action!"
-            </p>
-
-            <div className="poster-highlights-list">
-              <div className="poster-highlight-item">
-                <Film className="icon" size={20} />
-                <span><strong>Curated Short Film Screenings:</strong> Deep human narratives addressing empathy, ethical dilemmas, and awareness.</span>
-              </div>
-
-              <div className="poster-highlight-item">
-                <Sparkles className="icon" size={20} />
-                <span><strong>Speed Quiz Arena:</strong> Real-time competitive quiz round testing comprehension and values with live podium standings.</span>
-              </div>
-
-              <div className="poster-highlight-item">
-                <HeartHandshake className="icon" size={20} />
-                <span><strong>Open Floor Dialogue:</strong> Interactive group reflection exploring universal human values and harmonious co-existence.</span>
-              </div>
-
-              <div className="poster-highlight-item">
-                <Ticket className="icon" size={20} />
-                <span><strong>Official Entry Pass:</strong> Verified QR code entry pass with official certificate for all registered attendees.</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-              <a href="#register" className="btn btn-primary">
-                Book Your Seat (₹50)
-              </a>
-              <a href="https://www.akgec.ac.in/ve-cell/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                Learn About VE Cell ↗
-              </a>
-            </div>
+            <div className="hero-info-value">₹60 Only</div>
           </div>
         </div>
       </section>
@@ -277,7 +208,7 @@ export default function Home() {
         <div className="section-header animate-fade-in-up">
           <div className="section-tag">Secure Your Entry</div>
           <h2 className="section-title">Register for Drishti</h2>
-          <p className="section-subtitle">Pay ₹50 via UPI, upload your payment confirmation screenshot, and receive your verified entry QR pass.</p>
+          <p className="section-subtitle">Pay ₹60 via UPI, upload your payment confirmation screenshot, and receive your verified entry QR pass.</p>
         </div>
 
         <div className="register-container">
@@ -382,12 +313,14 @@ export default function Home() {
 
               {/* Payment Proof Section */}
               <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '24px 0 20px', paddingTop: '24px' }}>
-                <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, marginBottom: '4px', color: 'var(--accent-primary)' }}>
-                  💳 Payment Proof (₹50 Entry Fee)
-                </h4>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                  After paying ₹50 via UPI to the official coordinator QR, upload the transaction confirmation screenshot
-                </p>
+                <div style={{ marginBottom: '8px' }}>
+                  <label className="form-label" style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    💳 Payment Proof (₹60 Entry Fee) <span style={{ color: 'var(--accent-danger)' }}>*</span>
+                  </label>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
+                    After paying ₹60 via UPI to the official coordinator QR, upload the transaction confirmation screenshot
+                  </p>
+                </div>
               </div>
 
               <div className="form-group">
@@ -467,7 +400,7 @@ export default function Home() {
                     <span>Registering...</span>
                   </>
                 ) : (
-                  'Complete Registration (₹50)'
+                  'Complete Registration (₹60)'
                 )}
               </button>
             </form>
@@ -476,11 +409,11 @@ export default function Home() {
           {/* Payment Card */}
           <div className="payment-card animate-fade-in-up stagger-2" style={{ opacity: 0 }}>
             <h3 className="payment-card-title">Event Payment</h3>
-            <p className="payment-card-subtitle">Scan the QR code to pay ₹50 via any UPI app</p>
+            <p className="payment-card-subtitle">Scan the QR code to pay ₹60 via any UPI app</p>
 
             <div className="payment-amount">
               <span className="payment-amount-currency">₹</span>
-              <span className="payment-amount-value">50</span>
+              <span className="payment-amount-value">60</span>
             </div>
 
             <div className="payment-qr-container">
@@ -510,7 +443,7 @@ export default function Home() {
               </div>
               <div className="payment-step">
                 <span className="payment-step-number">2</span>
-                <span className="payment-step-text">Scan the QR above and pay <strong>₹50</strong></span>
+                <span className="payment-step-text">Scan the QR above and pay <strong>₹60</strong></span>
               </div>
               <div className="payment-step">
                 <span className="payment-step-number">3</span>
@@ -648,52 +581,58 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Poster Enlarge Modal */}
-      {showPosterModal && (
-        <div className="modal-overlay" onClick={() => setShowPosterModal(false)}>
-          <div className="modal" style={{ maxWidth: '640px', padding: '16px', background: 'rgba(8, 9, 24, 0.98)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <img src="/ve_cell_logo.png" alt="VE Cell" style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'white' }} />
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Drishti Official Event Poster</span>
-              </div>
-              <button 
-                className="modal-close" 
-                onClick={() => setShowPosterModal(false)}
-                style={{ position: 'static', width: '32px', height: '32px' }}
-              >
-                ✕
-              </button>
-            </div>
-            <img 
-              src="/drishti_poster.jpg" 
-              alt="Drishti Full Event Poster" 
-              style={{ width: '100%', height: 'auto', borderRadius: 'var(--radius-md)' }} 
-            />
-          </div>
-        </div>
-      )}
 
-      {/* Success Modal */}
+
+      {/* Registration Submitted Modal (Awaiting Admin Payment Verification) */}
       {showSuccess && successData && (
         <div className="modal-overlay" onClick={() => setShowSuccess(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', textAlign: 'center' }}>
             <button className="modal-close" onClick={() => setShowSuccess(false)}>✕</button>
-            <div className="modal-icon">✓</div>
-            <h3 className="modal-title">Registration Successful!</h3>
-            <p className="modal-subtitle">
-              Your entry QR pass has been sent to <strong>{successData.email}</strong>
+            <div className="modal-icon" style={{ background: 'rgba(250, 204, 21, 0.15)', color: 'var(--akgec-gold)', border: '2px solid rgba(250, 204, 21, 0.4)' }}>
+              ⏳
+            </div>
+            <h3 className="modal-title">Registration Submitted!</h3>
+            <div style={{ display: 'inline-block', background: 'rgba(250, 204, 21, 0.12)', color: 'var(--akgec-gold)', padding: '4px 14px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, margin: '8px 0 14px' }}>
+              Payment Verification Pending
+            </div>
+
+            <p className="modal-subtitle" style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: '20px' }}>
+              Your details and payment receipt have been received. The Value Education Cell admin team will review your transaction.
             </p>
 
-            {successData.qr_code && (
-              <div className="modal-qr">
-                <img src={successData.qr_code} alt="Your Entry QR Code" />
+            <div style={{ 
+              background: 'rgba(255, 255, 255, 0.04)', 
+              border: '1px solid rgba(255, 255, 255, 0.08)', 
+              borderRadius: 'var(--radius-md)', 
+              padding: '16px', 
+              textAlign: 'left',
+              marginBottom: '20px',
+              fontSize: '0.85rem'
+            }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>📬</span> What happens next?
               </div>
-            )}
-
-            <div className="modal-info">
-              📧 Check your email for the pass. Show the QR at the CSIT Seminar Hall for event entry!
+              <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <li>
+                  <strong>Payment Review:</strong> Admin verifies your ₹60 payment screenshot and UTR.
+                </li>
+                <li>
+                  <strong>Official QR Emailed:</strong> Once verified, your entry QR code and pass code will be sent to: <strong style={{ color: 'var(--accent-primary)' }}>{successData.email}</strong>.
+                </li>
+                <li>
+                  <strong>Gate Entry & Goodies:</strong> Show the emailed QR code at the CSIT Seminar Hall gate to receive your official entry and snacks packet!
+                </li>
+              </ul>
             </div>
+
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '12px' }}
+              onClick={() => setShowSuccess(false)}
+            >
+              Got It!
+            </button>
           </div>
         </div>
       )}

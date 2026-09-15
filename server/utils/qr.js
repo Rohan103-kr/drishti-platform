@@ -5,14 +5,15 @@ const QRCode = require('qrcode');
  * @param {string} token - Unique QR token
  * @returns {Promise<string>} - QR code as data URL (base64 PNG)
  */
-async function generateQRCode(token) {
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify/${token}`;
+async function generateQRCode(token, passCode = '') {
+  const codeParam = passCode ? `?code=${encodeURIComponent(passCode)}` : '';
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify/${token}${codeParam}`;
 
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
     width: 400,
     margin: 2,
     color: {
-      dark: '#1a1a2e',
+      dark: '#0f172a',
       light: '#ffffff',
     },
     errorCorrectionLevel: 'H',
@@ -24,16 +25,18 @@ async function generateQRCode(token) {
 /**
  * Generate QR code as buffer for email attachment
  * @param {string} token - Unique QR token
+ * @param {string} [passCode] - Unique readable pass code
  * @returns {Promise<Buffer>} - QR code as PNG buffer
  */
-async function generateQRBuffer(token) {
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify/${token}`;
+async function generateQRBuffer(token, passCode = '') {
+  const codeParam = passCode ? `?code=${encodeURIComponent(passCode)}` : '';
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify/${token}${codeParam}`;
 
   const buffer = await QRCode.toBuffer(verificationUrl, {
     width: 400,
     margin: 2,
     color: {
-      dark: '#1a1a2e',
+      dark: '#0f172a',
       light: '#ffffff',
     },
     errorCorrectionLevel: 'H',
