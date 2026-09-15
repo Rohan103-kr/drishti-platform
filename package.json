@@ -5,6 +5,7 @@
   "scripts": {
     "build": "cd client && npm install && npm run build && cd ../server && npm install",
     "start": "node server/index.js",
-    "dev": "node server/index.js"
+    "dev": "node server/index.js",
+    "clean:demo": "node server/scripts/reset-demo-data.js"
   }
 }
