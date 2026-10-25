@@ -5,8 +5,12 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:m4": "node --max-old-space-size=4096 index.js",
     "dev": "node --watch index.js",
-    "tunnel": "cloudflared tunnel --url http://localhost:5000"
+    "live": "node scripts/start-all.js",
+    "tunnel": "node scripts/run-tunnel.js",
+    "tunnel:restart": "node scripts/run-tunnel.js",
+    "qr:sync": "node scripts/sync-tunnel-qr.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -21,6 +25,7 @@
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "sqlite3": "^6.0.1",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "xlsx": "^0.18.5"
   }
 }

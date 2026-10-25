@@ -1,4 +1,6 @@
 const mysql = require('mysql2/promise');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config();
 
 function parseDatabaseUrlRobust(url) {
@@ -42,8 +44,12 @@ function parseDatabaseUrlRobust(url) {
 
 let poolConfig = {
   waitForConnections: true,
-  connectionLimit: 50,
-  queueLimit: 0,
+  connectionLimit: 120, // Optimized for Apple M4 10-Core CPU & 250+ concurrent users
+  maxIdle: 30,
+  idleTimeout: 60000,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
+  queueLimit: 1000, // Safe queue limit for burst traffic
 };
 
 const parsedUrl = parseDatabaseUrlRobust(process.env.DATABASE_URL);
@@ -136,9 +142,35 @@ async function initializeDatabase() {
       await pool.execute(`ALTER TABLE registrations ADD COLUMN gate_checked_in BOOLEAN DEFAULT FALSE`);
       await pool.execute(`ALTER TABLE registrations ADD COLUMN gate_checked_in_at DATETIME DEFAULT NULL`);
     }
+    // Ensure payment_screenshot can hold long Google Drive URLs
+    try {
+      await pool.execute(`ALTER TABLE registrations MODIFY COLUMN payment_screenshot TEXT DEFAULT NULL`);
+    } catch (e) {}
   } catch (err) {
     // ignore
   }
+
+  // Registrations Performance Indexes for 250+ queries
+  try {
+    await pool.execute(`
+      CREATE INDEX idx_reg_status 
+      ON registrations (payment_verified, gate_checked_in)
+    `);
+  } catch (err) {}
+
+  try {
+    await pool.execute(`
+      CREATE INDEX idx_reg_created 
+      ON registrations (created_at DESC)
+    `);
+  } catch (err) {}
+
+  try {
+    await pool.execute(`
+      CREATE INDEX idx_reg_email 
+      ON registrations (email)
+    `);
+  } catch (err) {}
 
   // Quiz Competition Tables
   await pool.execute(`

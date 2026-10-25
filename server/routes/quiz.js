@@ -11,6 +11,55 @@ function createQuizRouter(io) {
   let cachedConfig = null;
   let cachedLeaderboard = null;
   let lastLeaderboardFetch = 0;
+  const submittedRollSet = new Set();
+
+  // Pre-warm RAM caches on startup for 0ms latency
+  async function prewarmQuizCaches() {
+    try {
+      // 1. Preload Config
+      const [configs] = await pool.execute('SELECT * FROM quiz_config ORDER BY id DESC LIMIT 1');
+      const config = configs[0] || { status: 'draft', duration_seconds: 300, title: 'Drishti Speed Quiz' };
+      const [qCount] = await pool.execute('SELECT COUNT(*) as count, COALESCE(SUM(marks), 0) as total_marks FROM quiz_questions');
+      const [pCount] = await pool.execute('SELECT COUNT(*) as count FROM quiz_submissions');
+      cachedConfig = {
+        title: config.title,
+        status: config.status,
+        duration_seconds: config.duration_seconds,
+        started_at: config.started_at,
+        ended_at: config.ended_at,
+        total_questions: qCount[0].count,
+        total_possible_marks: Number(qCount[0].total_marks),
+        total_submissions: pCount[0].count,
+      };
+
+      // 2. Preload Questions
+      const [qsPublic] = await pool.execute(`
+        SELECT id, question_text, option_a, option_b, option_c, option_d, marks, order_index
+        FROM quiz_questions
+        ORDER BY order_index ASC, id ASC
+      `);
+      cachedQuestionsPublic = qsPublic;
+
+      const [qsAdmin] = await pool.execute('SELECT id, correct_option, marks FROM quiz_questions');
+      cachedQuestionsAdmin = qsAdmin;
+
+      // 3. Preload Submitted Roll Numbers
+      const [subs] = await pool.execute('SELECT roll_number FROM quiz_submissions');
+      subs.forEach((s) => {
+        if (s.roll_number) submittedRollSet.add(s.roll_number.trim().toUpperCase());
+      });
+
+      // 4. Preload Leaderboard
+      await getLeaderboardData();
+
+      console.log(`⚡ Quiz Caches Pre-warmed: ${cachedQuestionsPublic.length} questions, ${submittedRollSet.size} previous submissions in RAM.`);
+    } catch (err) {
+      console.error('Quiz prewarm error:', err);
+    }
+  }
+
+  // Run pre-warm asynchronously
+  prewarmQuizCaches();
 
   // Invalidate in-memory caches
   const invalidateQuestionCache = () => {
@@ -81,7 +130,10 @@ function createQuizRouter(io) {
         invalidateLeaderboardCache();
         const leaderboard = await getLeaderboardData();
         if (io) {
-          io.emit('leaderboard_update', leaderboard);
+          // Send top 50 to leaderboard display screens and admin to keep payload compact (<5KB)
+          const compactLeaderboard = leaderboard.slice(0, 50);
+          io.to('room:leaderboard').to('room:admin').emit('leaderboard_update', compactLeaderboard);
+          io.emit('leaderboard_update', compactLeaderboard);
         }
       } catch (err) {
         console.error('Error in throttled leaderboard broadcast:', err);
@@ -131,9 +183,92 @@ function createQuizRouter(io) {
     }
   });
 
+  // Verify if a student is registered for Drishti before allowing quiz access
+  router.post('/verify-participant', async (req, res) => {
+    try {
+      const { roll_number } = req.body;
+      if (!roll_number || !roll_number.trim()) {
+        return res.status(400).json({ error: 'Please enter your University Roll Number.' });
+      }
+
+      const cleanRoll = roll_number.trim().toUpperCase();
+
+      // 1. Check in-memory Set first (quick check for past submission)
+      if (submittedRollSet.has(cleanRoll)) {
+        return res.status(400).json({
+          error: 'You have already completed and submitted this quiz once. Check your score on the live leaderboard!',
+          already_submitted: true,
+        });
+      }
+
+      // 2. Query registrations table
+      const [rows] = await pool.execute(
+        'SELECT id, name, roll_number, branch, section, payment_verified, pass_code FROM registrations WHERE UPPER(roll_number) = ? OR UPPER(pass_code) = ?',
+        [cleanRoll, cleanRoll]
+      );
+
+      if (rows.length === 0) {
+        return res.status(403).json({
+          error: `Roll Number "${roll_number.trim()}" is not registered for Drishti. Only registered participants can enter the quiz arena.`,
+          registered: false,
+        });
+      }
+
+      const reg = rows[0];
+
+      // 3. Double-check DB if this registered roll number already submitted
+      const [pastSubs] = await pool.execute(
+        'SELECT id, score, total_marks FROM quiz_submissions WHERE UPPER(roll_number) = ?',
+        [reg.roll_number.toUpperCase()]
+      );
+
+      if (pastSubs.length > 0) {
+        submittedRollSet.add(reg.roll_number.toUpperCase());
+        return res.status(400).json({
+          error: 'You have already completed and submitted this quiz once. Check your score on the live leaderboard!',
+          already_submitted: true,
+          submission: pastSubs[0],
+        });
+      }
+
+      res.json({
+        success: true,
+        registered: true,
+        participant: {
+          id: reg.id,
+          name: reg.name,
+          roll_number: reg.roll_number,
+          branch: reg.branch,
+          section: reg.section,
+          pass_code: reg.pass_code,
+          payment_verified: Boolean(reg.payment_verified),
+        },
+      });
+    } catch (err) {
+      console.error('Error verifying participant:', err);
+      res.status(500).json({ error: 'Server error during registration verification.' });
+    }
+  });
+
   // Get questions for participant WITHOUT correct_option (Served from RAM for 250+ users)
+  // Protected: requires registered participant roll number
   router.get('/questions', async (req, res) => {
     try {
+      const rollNumber = req.query.roll_number || req.headers['x-participant-roll'];
+      if (!rollNumber) {
+        return res.status(403).json({ error: 'Access denied: Participant Roll Number is required to access questions.' });
+      }
+
+      const cleanRoll = rollNumber.trim().toUpperCase();
+      const [regCheck] = await pool.execute(
+        'SELECT id FROM registrations WHERE UPPER(roll_number) = ? OR UPPER(pass_code) = ?',
+        [cleanRoll, cleanRoll]
+      );
+
+      if (regCheck.length === 0) {
+        return res.status(403).json({ error: 'Access denied: Only registered Drishti participants can access quiz questions.' });
+      }
+
       if (!cachedQuestionsPublic) {
         const [questions] = await pool.execute(`
           SELECT id, question_text, option_a, option_b, option_c, option_d, marks, order_index
@@ -160,15 +295,27 @@ function createQuizRouter(io) {
 
       const cleanRoll = roll_number.trim().toUpperCase();
 
-      // Check if participant already submitted
-      const [existing] = await pool.execute(
-        'SELECT id FROM quiz_submissions WHERE roll_number = ? LIMIT 1',
-        [cleanRoll]
+      // Check registration status before accepting submission
+      const [regRows] = await pool.execute(
+        'SELECT id, name, roll_number FROM registrations WHERE UPPER(roll_number) = ? OR UPPER(pass_code) = ?',
+        [cleanRoll, cleanRoll]
       );
 
-      if (existing.length > 0) {
+      if (regRows.length === 0) {
+        return res.status(403).json({ error: 'Submission rejected: You must be a registered participant of Drishti.' });
+      }
+
+      // Use verified name from official registration to prevent name spoofing
+      const verifiedName = regRows[0].name;
+      const verifiedRoll = regRows[0].roll_number.toUpperCase();
+
+      // Check in-memory Set first (0.001ms instantaneous check - zero DB lock for 250+ users)
+      if (submittedRollSet.has(verifiedRoll)) {
         return res.status(400).json({ error: 'You have already submitted this quiz once.' });
       }
+
+      // Add to set immediately to block race condition double submissions
+      submittedRollSet.add(verifiedRoll);
 
       // Fetch questions and correct answers (use admin cached questions for instant memory evaluation)
       if (!cachedQuestionsAdmin) {
@@ -189,34 +336,41 @@ function createQuizRouter(io) {
 
       const safeTimeTaken = Math.max(0, parseInt(time_taken_seconds, 10) || 0);
 
-      await pool.execute(
-        `INSERT INTO quiz_submissions 
-        (name, roll_number, started_at, submitted_at, time_taken_seconds, score, total_marks, answers_json, violation_reason)
-        VALUES (?, ?, NOW(), NOW(), ?, ?, ?, ?, ?)`,
-        [
-          name.trim(),
-          cleanRoll,
-          safeTimeTaken,
-          score,
-          total_marks,
-          JSON.stringify(answers),
-          violation_reason || null,
-        ]
-      );
+      try {
+        await pool.execute(
+          `INSERT INTO quiz_submissions 
+          (name, roll_number, started_at, submitted_at, time_taken_seconds, score, total_marks, answers_json, violation_reason)
+          VALUES (?, ?, NOW(), NOW(), ?, ?, ?, ?, ?)`,
+          [
+            verifiedName,
+            verifiedRoll,
+            safeTimeTaken,
+            score,
+            total_marks,
+            JSON.stringify(answers),
+            violation_reason || null,
+          ]
+        );
+      } catch (insertErr) {
+        submittedRollSet.delete(verifiedRoll); // Rollback in-memory guard
+        throw insertErr;
+      }
 
       // Invalidate leaderboard cache and schedule broadcast
       invalidateLeaderboardCache();
       scheduleLeaderboardBroadcast();
 
-      // Send immediate lightweight event for instant feedback
+      // Send targeted lightweight event to leaderboard & admin rooms
       if (io) {
-        io.emit('submission_received', {
+        const subPayload = {
           name: name.trim(),
           score,
           total_marks,
           formatted_time: formatDuration(safeTimeTaken),
           violation: violation_reason,
-        });
+        };
+        io.to('room:leaderboard').to('room:admin').emit('submission_received', subPayload);
+        io.emit('submission_received', subPayload);
       }
 
       // Update cached total submissions
@@ -484,12 +638,14 @@ function createQuizRouter(io) {
       await pool.execute('DELETE FROM quiz_submissions');
       await pool.execute("UPDATE quiz_config SET status = 'draft', started_at = NULL, ended_at = NULL ORDER BY id DESC LIMIT 1");
 
+      submittedRollSet.clear();
       invalidateLeaderboardCache();
       cachedConfig = null;
 
       const leaderboard = [];
       if (io) {
         io.emit('competition_status_changed', { status: 'draft' });
+        io.to('room:leaderboard').to('room:admin').emit('leaderboard_update', leaderboard);
         io.emit('leaderboard_update', leaderboard);
       }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { socket } from '../utils/socket';
+import { socket, joinRoom, leaveRoom } from '../utils/socket';
 import { 
   Play, 
   Square, 
@@ -136,6 +136,7 @@ export default function QuizHostAdmin() {
 
   useEffect(() => {
     fetchHostData();
+    joinRoom('room:admin');
 
     socket.on('participant_stats', (s) => setStats(s));
     socket.on('leaderboard_update', (l) => setLeaderboard(l));
@@ -151,6 +152,7 @@ export default function QuizHostAdmin() {
     });
 
     return () => {
+      leaveRoom('room:admin');
       socket.off('participant_stats');
       socket.off('leaderboard_update');
       socket.off('competition_status_changed');

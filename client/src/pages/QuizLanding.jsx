@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { socket } from '../utils/socket';
+import { socket, joinRoom, leaveRoom } from '../utils/socket';
 import { 
   Trophy, 
   Timer, 
@@ -12,7 +12,10 @@ import {
   CheckCircle, 
   Sparkles, 
   Users,
-  Play
+  Play,
+  ShieldCheck,
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -32,6 +35,9 @@ export default function QuizLanding() {
   const [acceptedRules, setAcceptedRules] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(false);
+  const [verifiedParticipant, setVerifiedParticipant] = useState(null);
+  const [notRegistered, setNotRegistered] = useState(false);
   const navigate = useNavigate();
 
   const fetchStatus = async () => {
@@ -45,8 +51,50 @@ export default function QuizLanding() {
     }
   };
 
+  const verifyRegistration = async (rollToVerify) => {
+    const clean = (rollToVerify || rollNumber).trim();
+    if (!clean) {
+      setError('Please enter your University Roll Number');
+      return null;
+    }
+
+    setVerifying(true);
+    setError('');
+    setNotRegistered(false);
+
+    try {
+      const res = await axios.post(`${API_URL}/quiz/verify-participant`, {
+        roll_number: clean,
+      });
+
+      if (res.data.registered && res.data.participant) {
+        setVerifiedParticipant(res.data.participant);
+        setName(res.data.participant.name);
+        setNotRegistered(false);
+        return res.data.participant;
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Registration verification failed.';
+      setError(msg);
+      if (err.response?.status === 403) {
+        setNotRegistered(true);
+      }
+      setVerifiedParticipant(null);
+      return null;
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   useEffect(() => {
     fetchStatus();
+    joinRoom('room:lobby');
+
+    // Auto-check stored roll number if present
+    const storedRoll = localStorage.getItem('quiz_participant_roll');
+    if (storedRoll) {
+      verifyRegistration(storedRoll);
+    }
 
     // Socket listeners for real-time state changes
     socket.on('competition_status_changed', (data) => {
@@ -69,37 +117,42 @@ export default function QuizLanding() {
     });
 
     return () => {
+      leaveRoom('room:lobby');
       socket.off('competition_status_changed');
       socket.off('duration_updated');
       socket.off('participant_stats');
     };
   }, []);
 
-  const handleStartQuiz = (e) => {
+  const handleStartQuiz = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!name.trim()) {
-      setError('Please enter your full name');
-      return;
-    }
     if (!rollNumber.trim()) {
-      setError('Please enter your roll / registration number');
+      setError('Please enter your University Roll Number');
       return;
     }
+
+    // 1. Mandatory Server Verification: must be registered in Drishti database
+    let participant = verifiedParticipant;
+    if (!participant || participant.roll_number.toUpperCase() !== rollNumber.trim().toUpperCase()) {
+      participant = await verifyRegistration(rollNumber);
+      if (!participant) return;
+    }
+
     if (!acceptedRules) {
       setError('You must accept the proctoring rules to begin');
       return;
     }
 
     if (quizStatus.status !== 'live') {
-      setError('The competition has not been started by the host yet! Please wait.');
+      setError('The competition has not been started by the host yet! Please wait on this screen.');
       return;
     }
 
-    // Persist participant info
-    localStorage.setItem('quiz_participant_name', name.trim());
-    localStorage.setItem('quiz_participant_roll', rollNumber.trim().toUpperCase());
+    // Persist verified participant info
+    localStorage.setItem('quiz_participant_name', participant.name);
+    localStorage.setItem('quiz_participant_roll', participant.roll_number.toUpperCase());
     localStorage.setItem('quiz_start_timestamp', Date.now().toString());
 
     // Navigate to active quiz
@@ -165,7 +218,36 @@ export default function QuizLanding() {
               Enter your official student credentials to join the live round.
             </p>
 
-            {error && (
+            {/* Rejection Alert: Prompt to Register */}
+            {notRegistered && (
+              <div style={{
+                background: 'rgba(244, 63, 94, 0.12)',
+                border: '1px solid rgba(244, 63, 94, 0.4)',
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+                marginBottom: '20px',
+                textAlign: 'center'
+              }}>
+                <div style={{ color: 'var(--error)', fontWeight: 700, fontSize: '15px', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <Lock size={18} />
+                  <span>Only Registered Students Can Access Quiz</span>
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '14px', lineHeight: 1.4 }}>
+                  Roll number <strong>"{rollNumber}"</strong> is not registered for Drishti. Please register on the main portal to unlock entry.
+                </p>
+                <Link
+                  to="/#register"
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', padding: '10px 18px', fontWeight: 700 }}
+                >
+                  <Sparkles size={15} />
+                  <span>Register for Drishti Now (₹60)</span>
+                </Link>
+              </div>
+            )}
+
+            {/* General Error Banner */}
+            {error && !notRegistered && (
               <div style={{
                 background: 'var(--error-bg)',
                 border: '1px solid var(--error)',
@@ -183,32 +265,81 @@ export default function QuizLanding() {
               </div>
             )}
 
-            <form onSubmit={handleStartQuiz}>
-              <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label className="form-label" htmlFor="fullName">Full Name</label>
-                <input
-                  id="fullName"
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Rahul Sharma"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+            {/* Verified Participant Badge */}
+            {verifiedParticipant && (
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                borderRadius: 'var(--radius-md)',
+                padding: '14px 18px',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <ShieldCheck size={14} /> Verified Registered Student
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', marginTop: '3px' }}>
+                    {verifiedParticipant.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {verifiedParticipant.branch} • Sec {verifiedParticipant.section} • Roll: {verifiedParticipant.roll_number}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setVerifiedParticipant(null);
+                    setRollNumber('');
+                    setName('');
+                  }}
+                  style={{ fontSize: '11px', padding: '4px 10px' }}
+                >
+                  Switch
+                </button>
               </div>
+            )}
 
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label" htmlFor="rollNum">Student Roll / Registration No.</label>
-                <input
-                  id="rollNum"
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. 2300270100050"
-                  value={rollNumber}
-                  onChange={(e) => setRollNumber(e.target.value)}
-                  required
-                />
-              </div>
+            <form onSubmit={handleStartQuiz}>
+              {!verifiedParticipant ? (
+                <>
+                  <div className="form-group" style={{ marginBottom: '20px' }}>
+                    <label className="form-label" htmlFor="rollNum">University Roll Number / Entry Pass Code</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        id="rollNum"
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. 2100270130001 or DRISHTI-7K2M9P"
+                        value={rollNumber}
+                        onChange={(e) => {
+                          setRollNumber(e.target.value);
+                          if (notRegistered) setNotRegistered(false);
+                          if (error) setError('');
+                        }}
+                        onBlur={() => rollNumber.trim() && verifyRegistration(rollNumber)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => verifyRegistration(rollNumber)}
+                        disabled={verifying || !rollNumber.trim()}
+                        style={{ whiteSpace: 'nowrap', padding: '0 16px', fontSize: '13px' }}
+                      >
+                        {verifying ? 'Checking...' : 'Check ID'}
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      🔒 Quiz access is restricted exclusively to registered Drishti participants.
+                    </div>
+                  </div>
+                </>
+              ) : null}
 
               <div style={{
                 background: 'rgba(255, 255, 255, 0.03)',

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { socket } from '../utils/socket';
+import { socket, joinRoom, leaveRoom } from '../utils/socket';
 import { 
   Trophy, 
   Search, 
@@ -35,6 +35,7 @@ export default function QuizLeaderboard() {
 
   useEffect(() => {
     fetchLeaderboard();
+    joinRoom('room:leaderboard');
 
     // Listen for live updates over websocket
     socket.on('leaderboard_update', (updatedLeaderboard) => {
@@ -47,6 +48,7 @@ export default function QuizLeaderboard() {
     });
 
     return () => {
+      leaveRoom('room:leaderboard');
       socket.off('leaderboard_update');
       socket.off('submission_received');
     };

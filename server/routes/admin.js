@@ -1,10 +1,56 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const XLSX = require('xlsx');
+const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../config/db');
 const { authenticateToken } = require('../middleware/auth');
 const { sendConfirmationEmail } = require('../utils/email');
-const { generateQRBuffer } = require('../utils/qr');
+const { generateQRCode, generateQRBuffer } = require('../utils/qr');
 
 const router = express.Router();
+
+// Multer memory storage for Excel / CSV imports
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB max
+});
+
+// Helper to generate a unique readable pass code (e.g. DRISHTI-7K2M9P)
+function generatePassCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `DRISHTI-${code}`;
+}
+
+// Normalizes column names for comparison
+function normalizeKey(str) {
+  return String(str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Looks for values in a row by matching multiple possible header variations (exact match first, then substring)
+function findValue(row, possibleKeys) {
+  const keys = Object.keys(row);
+  // Pass 1: Look for exact key match with non-empty value
+  for (const pKey of possibleKeys) {
+    const target = normalizeKey(pKey);
+    const exactKey = keys.find(k => normalizeKey(k) === target && String(row[k] || '').trim() !== '');
+    if (exactKey) return String(row[exactKey]).trim();
+  }
+  // Pass 2: Look for substring match with non-empty value
+  for (const pKey of possibleKeys) {
+    const target = normalizeKey(pKey);
+    const subKey = keys.find(k => {
+      const norm = normalizeKey(k);
+      return (norm.includes(target) || target.includes(norm)) && String(row[k] || '').trim() !== '';
+    });
+    if (subKey) return String(row[subKey]).trim();
+  }
+  return '';
+}
 
 // All admin routes are protected
 router.use(authenticateToken);
@@ -37,14 +83,15 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// GET /api/admin/registrations - List all registrations with optional filter
+// GET /api/admin/registrations - List all registrations with advanced filters & sorting
 router.get('/registrations', async (req, res) => {
   try {
-    const { filter, search } = req.query;
-    let query = 'SELECT * FROM registrations';
+    const { filter, search, branch, section, sort } = req.query;
+    let query = `SELECT id, name, roll_number, branch, section, phone, email, payment_screenshot, utr_number, qr_token, pass_code, payment_verified, payment_verified_at, gate_checked_in, gate_checked_in_at, qr_expired, verified_at, created_at FROM registrations`;
     const params = [];
     const conditions = [];
 
+    // Status filter
     if (filter === 'pending' || filter === 'payment_pending') {
       conditions.push('(payment_verified = FALSE OR payment_verified IS NULL)');
     } else if (filter === 'verified' || filter === 'payment_approved') {
@@ -53,6 +100,19 @@ router.get('/registrations', async (req, res) => {
       conditions.push('(gate_checked_in = TRUE OR qr_expired = TRUE)');
     }
 
+    // Branch filter
+    if (branch && branch !== 'all') {
+      conditions.push('branch LIKE ?');
+      params.push(`%${branch}%`);
+    }
+
+    // Section filter
+    if (section && section !== 'all') {
+      conditions.push('section = ?');
+      params.push(section);
+    }
+
+    // Search query
     if (search) {
       conditions.push('(name LIKE ? OR roll_number LIKE ? OR email LIKE ? OR phone LIKE ? OR pass_code LIKE ?)');
       const searchPattern = `%${search}%`;
@@ -63,7 +123,18 @@ router.get('/registrations', async (req, res) => {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY created_at DESC';
+    // Sorting
+    if (sort === 'oldest') {
+      query += ' ORDER BY created_at ASC';
+    } else if (sort === 'name_asc') {
+      query += ' ORDER BY name ASC';
+    } else if (sort === 'name_desc') {
+      query += ' ORDER BY name DESC';
+    } else if (sort === 'roll_asc') {
+      query += ' ORDER BY roll_number ASC';
+    } else {
+      query += ' ORDER BY created_at DESC';
+    }
 
     const [rows] = await pool.execute(query, params);
 
@@ -88,6 +159,177 @@ router.get('/registrations/:id', async (req, res) => {
   } catch (err) {
     console.error('Get registration error:', err);
     res.status(500).json({ error: 'Server error fetching registration.' });
+  }
+});
+
+// POST /api/admin/registrations - Manually add a student registration
+router.post('/registrations', async (req, res) => {
+  try {
+    let { name, roll_number, branch, section, phone, email, utr_number, payment_screenshot, auto_verify } = req.body;
+
+    if (!name || !roll_number || !email) {
+      return res.status(400).json({ error: 'Name, Roll Number, and Email are required.' });
+    }
+
+    name = String(name).trim();
+    roll_number = String(roll_number).trim().toUpperCase();
+    branch = String(branch || 'General').trim();
+    section = String(section || '1').trim();
+    phone = String(phone || '').replace(/\D/g, '').slice(-10);
+    email = String(email).trim().toLowerCase();
+    utr_number = utr_number ? String(utr_number).trim() : null;
+    payment_screenshot = payment_screenshot ? String(payment_screenshot).trim() : null;
+
+    // Check duplicate roll number
+    const [existing] = await pool.execute(
+      'SELECT id FROM registrations WHERE roll_number = ?',
+      [roll_number]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ error: `Roll number ${roll_number} is already registered.` });
+    }
+
+    const qrToken = uuidv4();
+    let passCode = generatePassCode();
+
+    try {
+      const [dup] = await pool.execute('SELECT id FROM registrations WHERE pass_code = ?', [passCode]);
+      if (dup.length > 0) passCode = generatePassCode();
+    } catch (e) {}
+
+    const { qrDataUrl } = await generateQRCode(qrToken, passCode);
+    const now = new Date();
+    const isVerified = Boolean(auto_verify);
+
+    const [result] = await pool.execute(
+      `INSERT INTO registrations (
+        name, roll_number, branch, section, phone, email,
+        payment_screenshot, utr_number, qr_token, pass_code, qr_data_url,
+        payment_verified, payment_verified_at, verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name,
+        roll_number,
+        branch,
+        section,
+        phone || '0000000000',
+        email,
+        payment_screenshot,
+        utr_number,
+        qrToken,
+        passCode,
+        qrDataUrl,
+        isVerified,
+        isVerified ? now : null,
+        isVerified ? now : null,
+      ]
+    );
+
+    let emailSent = false;
+    if (isVerified) {
+      try {
+        const qrBuffer = await generateQRBuffer(qrToken, passCode);
+        await sendConfirmationEmail(
+          {
+            name,
+            roll_number,
+            branch,
+            section,
+            email,
+            qr_token: qrToken,
+            pass_code: passCode,
+          },
+          qrBuffer
+        );
+        emailSent = true;
+      } catch (mailErr) {
+        console.warn('Manual registration QR email failed:', mailErr.message);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: isVerified
+        ? (emailSent ? `Student added! Payment verified & Entry QR emailed to ${email}.` : `Student added & verified! (QR is active)`)
+        : `Student added to list in Pending Review status.`,
+      id: result.insertId,
+      pass_code: passCode,
+      email_sent: emailSent,
+    });
+  } catch (err) {
+    console.error('Manual registration error:', err);
+    res.status(500).json({ error: 'Server error during manual registration: ' + err.message });
+  }
+});
+
+// PUT /api/admin/registrations/:id - Edit registration details
+router.put('/registrations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { name, roll_number, branch, section, phone, email, utr_number, payment_screenshot } = req.body;
+
+    const [rows] = await pool.execute('SELECT * FROM registrations WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+
+    if (!name || !roll_number || !email) {
+      return res.status(400).json({ error: 'Name, Roll Number, and Email are required.' });
+    }
+
+    name = String(name).trim();
+    roll_number = String(roll_number).trim().toUpperCase();
+    branch = String(branch || 'General').trim();
+    section = String(section || '1').trim();
+    phone = String(phone || '').replace(/\D/g, '').slice(-10);
+    email = String(email).trim().toLowerCase();
+    utr_number = utr_number ? String(utr_number).trim() : null;
+    payment_screenshot = payment_screenshot ? String(payment_screenshot).trim() : null;
+
+    // Check if roll_number is taken by another student
+    const [dup] = await pool.execute(
+      'SELECT id FROM registrations WHERE roll_number = ? AND id != ?',
+      [roll_number, id]
+    );
+    if (dup.length > 0) {
+      return res.status(409).json({ error: `Roll number ${roll_number} is already taken by another student.` });
+    }
+
+    await pool.execute(
+      `UPDATE registrations 
+       SET name = ?, roll_number = ?, branch = ?, section = ?, phone = ?, email = ?, utr_number = ?, payment_screenshot = ?
+       WHERE id = ?`,
+      [name, roll_number, branch, section, phone || '0000000000', email, utr_number, payment_screenshot, id]
+    );
+
+    res.json({
+      success: true,
+      message: `Registration for ${name} (${roll_number}) updated successfully.`,
+    });
+  } catch (err) {
+    console.error('Update registration error:', err);
+    res.status(500).json({ error: 'Server error updating registration: ' + err.message });
+  }
+});
+
+// DELETE /api/admin/registrations/:id - Delete a registration
+router.delete('/registrations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await pool.execute('SELECT name, roll_number FROM registrations WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+
+    await pool.execute('DELETE FROM registrations WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: `Registration for ${rows[0].name} (${rows[0].roll_number}) deleted successfully.`,
+    });
+  } catch (err) {
+    console.error('Delete registration error:', err);
+    res.status(500).json({ error: 'Server error deleting registration: ' + err.message });
   }
 });
 
@@ -380,6 +622,215 @@ router.get('/export', async (req, res) => {
   } catch (err) {
     console.error('Export error:', err);
     res.status(500).json({ error: 'Server error during export.' });
+  }
+});
+
+// POST /api/admin/import-excel - Import registrations from Google Form Excel / CSV
+router.post('/import-excel', importUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Please select an Excel (.xlsx, .xls) or CSV file to upload.' });
+    }
+
+    let workbook;
+    try {
+      workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    } catch (parseErr) {
+      return res.status(400).json({ error: 'Unable to parse spreadsheet. Please ensure it is a valid .xlsx, .xls, or .csv file.' });
+    }
+
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      return res.status(400).json({ error: 'The uploaded spreadsheet contains no sheets.' });
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+
+    if (!rawRows || rawRows.length === 0) {
+      return res.status(400).json({ error: 'The uploaded sheet contains no data rows.' });
+    }
+
+    let importedCount = 0;
+    const skippedDuplicates = [];
+    const invalidRows = [];
+
+    // Pre-fetch all existing roll numbers to check duplicates efficiently
+    const [existingRows] = await pool.execute('SELECT roll_number FROM registrations');
+    const existingRolls = new Set(existingRows.map((r) => String(r.roll_number).trim().toUpperCase()));
+
+    for (let i = 0; i < rawRows.length; i++) {
+      const row = rawRows[i];
+      const rowNum = i + 2; // Row number in spreadsheet (accounting for 1-based index & header)
+
+      const name = findValue(row, [
+        'student name',
+        'full name',
+        'candidate name',
+        'participant name',
+        'name',
+        'studentname',
+        'fullname',
+      ]);
+
+      let roll_number = findValue(row, [
+        'university roll no',
+        'college roll no',
+        'student no',
+        'student number',
+        'roll number',
+        'roll no',
+        'rollnumber',
+        'rollno',
+        'studentno',
+        'student id',
+      ]);
+
+      const branch = findValue(row, [
+        'branch',
+        'department',
+        'course',
+        'branchdepartment',
+        'dept',
+      ]) || 'General';
+
+      const section = findValue(row, ['section', 'sec']) || '1';
+
+      let phone = findValue(row, [
+        'whatsapp number',
+        'phone number',
+        'mobile number',
+        'contact number',
+        'whatsapp',
+        'phone',
+        'mobile',
+        'contact',
+      ]);
+
+      const email = findValue(row, [
+        'email address',
+        'student email',
+        'email id',
+        'email',
+        'mail',
+      ]);
+
+      const utr_number = findValue(row, [
+        'transaction id',
+        'txn id',
+        'utr number',
+        'utr',
+        'reference id',
+        'ref no',
+        'payment id',
+        'transaction reference',
+        'utrno',
+      ]);
+
+      const payment_screenshot = findValue(row, [
+        'upload payment screenshot',
+        'payment screenshot',
+        'payment proof',
+        'upload payment proof',
+        'upload screenshot',
+        'screenshot',
+        'payment receipt',
+        'receipt',
+        'drive link',
+        'screenshot link',
+        'drive',
+      ]);
+
+      // Normalize roll number
+      roll_number = String(roll_number || '').trim().toUpperCase();
+
+      // Clean phone number (strip spaces, country code if > 10 digits)
+      phone = String(phone || '').replace(/\D/g, '');
+      if (phone.length > 10) {
+        phone = phone.slice(-10);
+      }
+
+      // Check required fields (Name, Roll Number, Email)
+      if (!name || !roll_number || !email) {
+        invalidRows.push({
+          row: rowNum,
+          name: name || '(empty)',
+          roll_number: roll_number || '(empty)',
+          email: email || '(empty)',
+          reason: 'Missing name, roll number, or email.',
+        });
+        continue;
+      }
+
+      // Check if roll number already exists in DB or current import batch
+      if (existingRolls.has(roll_number)) {
+        skippedDuplicates.push({
+          row: rowNum,
+          roll_number,
+          name,
+        });
+        continue;
+      }
+
+      // Track roll number to prevent duplicate within the same uploaded sheet
+      existingRolls.add(roll_number);
+
+      // Generate unique QR token and pass code
+      const qrToken = uuidv4();
+      let passCode = generatePassCode();
+
+      // Check for rare passCode collision
+      try {
+        const [dup] = await pool.execute('SELECT id FROM registrations WHERE pass_code = ?', [passCode]);
+        if (dup.length > 0) passCode = generatePassCode();
+      } catch (e) {}
+
+      // Generate QR data URL
+      let qrDataUrl = '';
+      try {
+        const qrRes = await generateQRCode(qrToken, passCode);
+        qrDataUrl = qrRes.qrDataUrl;
+      } catch (qrErr) {
+        console.warn('QR generation error for imported row:', qrErr.message);
+      }
+
+      // Insert into registrations table with payment_verified = FALSE
+      await pool.execute(
+        `INSERT INTO registrations (
+          name, roll_number, branch, section, phone, email,
+          payment_screenshot, utr_number, qr_token, pass_code, qr_data_url,
+          payment_verified
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)`,
+        [
+          name,
+          roll_number,
+          branch,
+          section,
+          phone || '0000000000',
+          email,
+          payment_screenshot || null,
+          utr_number || null,
+          qrToken,
+          passCode,
+          qrDataUrl,
+        ]
+      );
+
+      importedCount++;
+    }
+
+    res.json({
+      success: true,
+      message: `Import complete! Successfully imported ${importedCount} student(s).`,
+      totalRows: rawRows.length,
+      importedCount,
+      skippedDuplicatesCount: skippedDuplicates.length,
+      skippedDuplicates,
+      invalidRowsCount: invalidRows.length,
+      invalidRows,
+    });
+  } catch (err) {
+    console.error('Import excel error:', err);
+    res.status(500).json({ error: 'Server error while importing file: ' + err.message });
   }
 });
 

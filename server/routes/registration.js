@@ -67,9 +67,12 @@ router.post('/', upload.single('payment_screenshot'), async (req, res) => {
       return res.status(400).json({ error: 'Phone number must be a valid 10-digit Indian number.' });
     }
 
-    // Payment screenshot is required
-    if (!req.file) {
-      return res.status(400).json({ error: 'Payment screenshot is required. Please upload proof of payment.' });
+    // Either payment screenshot or valid UTR number is required
+    const cleanedUtr = utr_number ? utr_number.trim() : '';
+    if (!req.file && (!cleanedUtr || cleanedUtr.length < 6)) {
+      return res.status(400).json({
+        error: 'Please provide either a payment confirmation screenshot or a valid 12-digit UPI UTR / Transaction ID.',
+      });
     }
 
     // Check if roll number already registered
@@ -79,6 +82,19 @@ router.post('/', upload.single('payment_screenshot'), async (req, res) => {
     );
     if (existing.length > 0) {
       return res.status(409).json({ error: 'This roll number is already registered.' });
+    }
+
+    // If UTR number is provided, check for duplicate UTR submission
+    if (cleanedUtr) {
+      const [existingUtr] = await pool.execute(
+        'SELECT id FROM registrations WHERE utr_number = ?',
+        [cleanedUtr]
+      );
+      if (existingUtr.length > 0) {
+        return res.status(409).json({
+          error: 'This UPI Transaction ID / UTR number has already been submitted for another registration.',
+        });
+      }
     }
 
     // Generate unique QR token and unique human-readable pass code
@@ -95,14 +111,14 @@ router.post('/', upload.single('payment_screenshot'), async (req, res) => {
     const { qrDataUrl } = await generateQRCode(qrToken, passCode);
     const qrBuffer = await generateQRBuffer(qrToken, passCode);
 
-    // Payment screenshot path
-    const screenshotPath = `/uploads/${req.file.filename}`;
+    // Payment screenshot path (null if submitted via direct UPI intent without screenshot)
+    const screenshotPath = req.file ? `/uploads/${req.file.filename}` : null;
 
     // Insert into database with payment_verified = FALSE
     await pool.execute(
       `INSERT INTO registrations (name, roll_number, branch, section, phone, email, payment_screenshot, utr_number, qr_token, pass_code, qr_data_url, payment_verified)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)`,
-      [name, roll_number, branch, section, phone, email, screenshotPath, utr_number || null, qrToken, passCode, qrDataUrl]
+      [name, roll_number, branch, section, phone, email, screenshotPath, cleanedUtr || null, qrToken, passCode, qrDataUrl]
     );
 
     // Note: Confirmation email with QR is NOT sent now.

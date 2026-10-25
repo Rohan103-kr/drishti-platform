@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drishti • Scan to Join</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: radial-gradient(circle at top, #1e1b4b 0%, #090a16 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #fff;
+    }
+    .poster-card {
+      background: linear-gradient(180deg, rgba(30, 27, 75, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 2px solid rgba(168, 85, 247, 0.4);
+      border-radius: 28px;
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(124, 58, 237, 0.25);
+    }
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 24px;
+      letter-spacing: 0.5px;
+    }
+    .qr-box {
+      background: #fff;
+      padding: 16px;
+      border-radius: 20px;
+      display: inline-block;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      margin-bottom: 20px;
+      border: 4px solid #8b5cf6;
+    }
+    .qr-box img {
+      display: block;
+      width: 260px;
+      height: 260px;
+    }
+    .scan-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: #facc15;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+    .url-chip {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #38bdf8;
+      font-family: monospace;
+      word-break: break-all;
+      margin-bottom: 20px;
+    }
+    .perks {
+      display: flex;
+      justify-content: space-around;
+      font-size: 12px;
+      color: #cbd5e1;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 16px;
+    }
+    .btn-print {
+      margin-top: 20px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      .poster-card { border: 1px solid #000; box-shadow: none; max-width: 100%; }
+      .btn-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="poster-card">
+    <div class="badge">Value Education Cell • AKGEC</div>
+    <h1>DRISHTI</h1>
+    <div class="subtitle">A Value Based Short Film Event & Live Quiz</div>
+
+    <div class="qr-box">
+      <img src="data:image/png;base64,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" alt="Scan to visit Drishti">
+    </div>
+
+    <div class="scan-label">📷 Scan with Phone Camera</div>
+    <div class="url-chip">https://sensor-admitted-advances-guy.trycloudflare.com</div>
+
+    <div class="perks">
+      <div>🎬 Short Films</div>
+      <div>🍿 Free Snacks</div>
+      <div>🏆 Speed Quiz</div>
+    </div>
+
+    <button class="btn-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  </div>
+</body>
+</html>

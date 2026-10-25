@@ -4,8 +4,17 @@
   "description": "Drishti Event Registration & Live Quiz Platform",
   "scripts": {
     "build": "cd client && npm install && npm run build && cd ../server && npm install",
-    "start": "node server/index.js",
-    "dev": "node server/index.js",
-    "clean:demo": "node server/scripts/reset-demo-data.js"
+    "start": "cd server && node index.js",
+    "start:m4": "cd server && node --max-old-space-size=4096 index.js",
+    "dev": "cd server && node index.js",
+    "dev:m4": "cd server && node --max-old-space-size=4096 --watch index.js",
+    "live": "node server/scripts/start-all.js",
+    "tunnel": "bash ./restart-tunnel.sh",
+    "tunnel:restart": "bash ./restart-tunnel.sh",
+    "qr:sync": "node server/scripts/sync-tunnel-qr.js",
+    "reset:all": "node server/scripts/reset-demo-data.js --all",
+    "reset:quiz": "node server/scripts/reset-demo-data.js --quiz",
+    "reset:users": "node server/scripts/reset-demo-data.js --users",
+    "clean:demo": "node server/scripts/reset-demo-data.js --all"
   }
 }

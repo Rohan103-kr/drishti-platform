@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import Toast from '../components/Toast';
+import UpiPaymentGateway from '../components/UpiPaymentGateway';
 import { 
   Film, 
   Calendar, 
@@ -12,7 +13,10 @@ import {
   Sparkles, 
   HeartHandshake, 
   Users,
-  Compass
+  Compass,
+  X,
+  Zap,
+  ShieldCheck
 } from 'lucide-react';
 
 function InstagramIcon({ size = 18, color = "#e1306c" }) {
@@ -67,6 +71,7 @@ export default function Home() {
   const [toast, setToast] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [showGatewayModal, setShowGatewayModal] = useState(false);
   const fileInputRef = useRef(null);
 
   const validate = () => {
@@ -79,7 +84,12 @@ export default function Home() {
     else if (!/^[6-9]\d{9}$/.test(formData.phone)) errs.phone = 'Enter a valid 10-digit phone number';
     if (!formData.email.trim()) errs.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = 'Enter a valid email';
-    if (!paymentScreenshot) errs.payment_screenshot = 'Payment screenshot is required';
+    
+    // Either valid UTR number (min 6 digits) or screenshot proof
+    const hasUtr = formData.utr_number && formData.utr_number.trim().length >= 6;
+    if (!paymentScreenshot && !hasUtr) {
+      errs.utr_number = 'Enter your 12-digit UPI UTR number or attach a payment screenshot';
+    }
     return errs;
   };
 
@@ -311,27 +321,75 @@ export default function Home() {
                 {errors.email && <div className="form-error">{errors.email}</div>}
               </div>
 
-              {/* Payment Proof Section */}
+              {/* Payment Verification Section */}
               <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '24px 0 20px', paddingTop: '24px' }}>
-                <div style={{ marginBottom: '8px' }}>
-                  <label className="form-label" style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    💳 Payment Proof (₹60 Entry Fee) <span style={{ color: 'var(--accent-danger)' }}>*</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                  <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    💳 Payment Details (₹60 Entry Fee) <span style={{ color: 'var(--accent-primary)' }}>*</span>
                   </label>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
-                    After paying ₹60 via UPI to the official coordinator QR, upload the transaction confirmation screenshot
-                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setShowGatewayModal(true)}
+                    style={{
+                      fontSize: '11px',
+                      padding: '4px 10px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(217, 70, 239, 0.12)',
+                      borderColor: 'rgba(217, 70, 239, 0.3)',
+                      color: 'var(--accent-primary)',
+                      fontWeight: 600
+                    }}
+                  >
+                    <Zap size={12} />
+                    <span>Open UPI Gateway</span>
+                  </button>
                 </div>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
+                  Pay ₹60 using any UPI app (GPay, PhonePe, Paytm) and enter the <strong>12-digit UTR number</strong> below or attach screenshot.
+                </p>
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="payment_screenshot">Payment Screenshot *</label>
+                <label className="form-label" htmlFor="utr_number">
+                  12-Digit UPI Transaction ID / UTR Number
+                </label>
+                <div className="upi-input-wrapper">
+                  <input
+                    id="utr_number"
+                    type="text"
+                    name="utr_number"
+                    className={`form-input upi-utr-input ${/^\d{12}$/.test(formData.utr_number.trim()) ? 'is-valid' : ''}`}
+                    placeholder="e.g. 412345678901 (from payment confirmation)"
+                    value={formData.utr_number}
+                    onChange={handleChange}
+                    maxLength={22}
+                  />
+                  {/^\d{12}$/.test(formData.utr_number.trim()) && (
+                    <span className="upi-utr-valid-badge" title="Valid 12-digit length">
+                      ✓ 12 Digits
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  💡 Found in your UPI app receipt or bank SMS after paying
+                </div>
+                {errors.utr_number && <div className="form-error">{errors.utr_number}</div>}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="payment_screenshot">
+                  Payment Screenshot (Optional if UTR entered)
+                </label>
                 <div
                   className="file-upload-area"
                   onClick={() => fileInputRef.current?.click()}
                   style={{
                     border: `2px dashed ${errors.payment_screenshot ? 'var(--error)' : screenshotPreview ? 'var(--success)' : 'var(--border-medium)'}`,
                     borderRadius: 'var(--radius-md)',
-                    padding: screenshotPreview ? '12px' : '28px',
+                    padding: screenshotPreview ? '12px' : '20px',
                     textAlign: 'center',
                     cursor: 'pointer',
                     background: 'var(--bg-glass)',
@@ -353,7 +411,7 @@ export default function Home() {
                         alt="Payment screenshot"
                         style={{
                           maxWidth: '100%',
-                          maxHeight: '200px',
+                          maxHeight: '160px',
                           borderRadius: 'var(--radius-sm)',
                           objectFit: 'contain',
                         }}
@@ -364,11 +422,11 @@ export default function Home() {
                     </div>
                   ) : (
                     <>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>📤</div>
-                      <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                        Click to upload payment screenshot
+                      <div style={{ fontSize: '24px', marginBottom: '4px' }}>📤</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                        Click to upload payment screenshot (optional)
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                         JPG, PNG or WebP • Max 5MB
                       </div>
                     </>
@@ -377,93 +435,96 @@ export default function Home() {
                 {errors.payment_screenshot && <div className="form-error">{errors.payment_screenshot}</div>}
               </div>
 
-              <div className="form-group">
-                <label className="form-label" htmlFor="utr_number">UPI Transaction ID / UTR Number (optional)</label>
-                <input
-                  id="utr_number"
-                  type="text"
-                  name="utr_number"
-                  className="form-input"
-                  placeholder="e.g. 412345678901 (from payment confirmation)"
-                  value={formData.utr_number}
-                  onChange={handleChange}
-                />
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  💡 Find this in your UPI app transaction summary
-                </div>
-              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+                <button type="submit" className="btn btn-primary form-submit-btn" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner"></span>
+                      <span>Registering...</span>
+                    </>
+                  ) : (
+                    'Complete Registration (₹60)'
+                  )}
+                </button>
 
-              <button type="submit" className="btn btn-primary form-submit-btn" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="spinner"></span>
-                    <span>Registering...</span>
-                  </>
-                ) : (
-                  'Complete Registration (₹60)'
-                )}
-              </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowGatewayModal(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    padding: '10px'
+                  }}
+                >
+                  <Zap size={14} style={{ color: 'var(--akgec-gold)' }} />
+                  <span>⚡ Pay with GPay / PhonePe / QR Code</span>
+                </button>
+              </div>
             </form>
           </div>
 
-          {/* Payment Card */}
+          {/* Dynamic Interactive UPI Gateway Card */}
           <div className="payment-card animate-fade-in-up stagger-2" style={{ opacity: 0 }}>
-            <h3 className="payment-card-title">Event Payment</h3>
-            <p className="payment-card-subtitle">Scan the QR code to pay ₹60 via any UPI app</p>
+            <UpiPaymentGateway
+              rollNumber={formData.roll_number}
+              studentName={formData.name}
+              utrNumber={formData.utr_number}
+              onUtrChange={(val) => {
+                setFormData((prev) => ({ ...prev, utr_number: val }));
+                if (errors.utr_number) setErrors((prev) => ({ ...prev, utr_number: '' }));
+              }}
+              paymentScreenshot={paymentScreenshot}
+              onScreenshotChange={handleFileChange}
+              screenshotPreview={screenshotPreview}
+              errors={errors}
+            />
 
-            <div className="payment-amount">
-              <span className="payment-amount-currency">₹</span>
-              <span className="payment-amount-value">60</span>
-            </div>
-
-            <div className="payment-qr-container">
-              <img
-                src="/payment-qr.png"
-                alt="UPI Payment QR Code"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div className="payment-qr-placeholder" style={{ display: 'none' }}>
-                <span style={{ fontSize: '32px', marginBottom: '8px' }}>📱</span>
-                <span>Payment QR</span>
-                <span style={{ fontSize: '11px', marginTop: '4px' }}>Coming Soon</span>
-              </div>
-            </div>
-
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Pay to: <strong style={{ color: 'var(--text-primary)' }}>VIJAY KUMAR (Coordinator)</strong>
-            </div>
-
-            <div className="payment-steps">
-              <div className="payment-step">
-                <span className="payment-step-number">1</span>
-                <span className="payment-step-text">Open Google Pay, PhonePe, Paytm, or any UPI app</span>
-              </div>
-              <div className="payment-step">
-                <span className="payment-step-number">2</span>
-                <span className="payment-step-text">Scan the QR above and pay <strong>₹60</strong></span>
-              </div>
-              <div className="payment-step">
-                <span className="payment-step-number">3</span>
-                <span className="payment-step-text"><strong>Take a clear screenshot</strong> of the success receipt</span>
-              </div>
-              <div className="payment-step">
-                <span className="payment-step-number">4</span>
-                <span className="payment-step-text">Attach screenshot and submit your details</span>
-              </div>
-              <div className="payment-step">
-                <span className="payment-step-number">5</span>
-                <span className="payment-step-text">Receive your official <strong>Entry QR code pass</strong> on your email</span>
-              </div>
-            </div>
-
-            <div className="payment-note">
-              💡 Your payment will be verified by the VE Cell admin team. Once verified, your QR code grants entry at the CSIT Seminar Hall!
+            <div className="payment-note" style={{ marginTop: '16px' }}>
+              💡 Once registered, the VE Cell admin team will approve your pass and dispatch your verified QR code directly to your email!
             </div>
           </div>
         </div>
+
+        {/* DRISHTI PAY - Interactive Express Gateway Modal */}
+        {showGatewayModal && (
+          <div className="upi-modal-backdrop" onClick={() => setShowGatewayModal(false)}>
+            <div className="upi-modal-window animate-scale-in" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="upi-modal-close-btn"
+                onClick={() => setShowGatewayModal(false)}
+                title="Close Gateway"
+              >
+                <X size={18} />
+              </button>
+
+              <UpiPaymentGateway
+                rollNumber={formData.roll_number}
+                studentName={formData.name}
+                utrNumber={formData.utr_number}
+                onUtrChange={(val) => {
+                  setFormData((prev) => ({ ...prev, utr_number: val }));
+                  if (errors.utr_number) setErrors((prev) => ({ ...prev, utr_number: '' }));
+                }}
+                paymentScreenshot={paymentScreenshot}
+                onScreenshotChange={handleFileChange}
+                screenshotPreview={screenshotPreview}
+                errors={errors}
+                isModal={true}
+                onClose={() => setShowGatewayModal(false)}
+                onSubmit={(e) => {
+                  setShowGatewayModal(false);
+                  handleSubmit(e);
+                }}
+                loading={loading}
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Society Coordinators & Footer */}

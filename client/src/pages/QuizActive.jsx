@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { socket } from '../utils/socket';
+import { socket, joinRoom, leaveRoom } from '../utils/socket';
 import { 
   Timer, 
   Maximize, 
@@ -10,10 +10,46 @@ import {
   ChevronRight, 
   CheckCircle2, 
   Send, 
-  ShieldAlert
+  ShieldAlert,
+  RotateCcw
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+// Performance: Isolated Timer HUD component so 1-second ticks do NOT re-render questions & options
+const QuizTimerHUD = memo(function QuizTimerHUD({ durationSeconds, onExpire }) {
+  const [remaining, setRemaining] = useState(durationSeconds);
+
+  useEffect(() => {
+    setRemaining(durationSeconds);
+  }, [durationSeconds]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (onExpire) onExpire();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [onExpire]);
+
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  const formatted = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  const timerClass = remaining < 60 ? 'critical' : remaining < 120 ? 'warning' : 'normal';
+
+  return (
+    <div className={`quiz-timer ${timerClass}`}>
+      <Timer size={20} />
+      <span>{formatted}</span>
+    </div>
+  );
+});
 
 export default function QuizActive() {
   const navigate = useNavigate();
@@ -30,9 +66,10 @@ export default function QuizActive() {
     return saved ? JSON.parse(saved) : {};
   });
 
-  // Timer state (seconds)
+  // Timer duration (seconds)
   const [durationSeconds, setDurationSeconds] = useState(300);
-  const [timeLeft, setTimeLeft] = useState(300);
+  const [loadError, setLoadError] = useState(null);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
   const startTimeRef = useRef(Date.now());
 
   // Proctoring & Fullscreen state
@@ -136,53 +173,72 @@ export default function QuizActive() {
     }
   }, [name, rollNumber, answers, durationSeconds, navigate]);
 
-  // Load questions and config
-  useEffect(() => {
-    let isMounted = true;
+  // Load questions and config with robust error and retry handling
+  const loadQuizData = useCallback(async () => {
+    setLoadingQuestions(true);
+    setLoadError(null);
+    try {
+      const [configRes, questionsRes] = await Promise.all([
+        axios.get(`${API_URL}/quiz/status`),
+        axios.get(`${API_URL}/quiz/questions`, { params: { roll_number: rollNumber } }),
+      ]);
 
-    async function loadQuizData() {
-      try {
-        const [configRes, questionsRes] = await Promise.all([
-          axios.get(`${API_URL}/quiz/status`),
-          axios.get(`${API_URL}/quiz/questions`),
-        ]);
+      const dur = configRes.data?.duration_seconds || 300;
+      setDurationSeconds(dur);
+      const fetched = questionsRes.data?.questions || [];
+      setQuestions(fetched);
 
-        if (!isMounted) return;
-
-        const dur = configRes.data.duration_seconds || 300;
-        setDurationSeconds(dur);
-        setTimeLeft(dur);
-        setQuestions(questionsRes.data.questions || []);
-
+      if (fetched.length === 0) {
+        setLoadError('No questions found for this quiz. Please notify the host.');
+      } else {
         // Tell socket that user started
         socket.emit('quiz_taking_started', { roll_number: rollNumber });
-      } catch (err) {
-        console.error('Failed to load quiz data:', err);
       }
+    } catch (err) {
+      console.error('Failed to load quiz data:', err);
+      if (err.response?.status === 403) {
+        // Not registered - kick back to quiz entry page
+        localStorage.removeItem('quiz_participant_roll');
+        localStorage.removeItem('quiz_participant_name');
+        navigate('/quiz', { replace: true });
+        return;
+      }
+      setLoadError(err.response?.data?.error || err.message || 'Failed to load questions. Check your internet connection.');
+    } finally {
+      setLoadingQuestions(false);
     }
-
-    loadQuizData();
-
-    return () => {
-      isMounted = false;
-      socket.emit('quiz_taking_ended');
-    };
   }, [rollNumber]);
 
-  // Timer countdown hook
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          submitQuiz('Time expired (Auto-submitted at 0:00)');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    joinRoom('room:quiz');
+    loadQuizData();
 
-    return () => clearInterval(timer);
+    // Listen for host ending the quiz in real time
+    const handleStatusChanged = (data) => {
+      if (data?.status === 'ended') {
+        submitQuiz('Quiz ended by competition host');
+      }
+    };
+
+    const handleDurationUpdated = (data) => {
+      if (data?.duration_seconds) {
+        setDurationSeconds(data.duration_seconds);
+      }
+    };
+
+    socket.on('competition_status_changed', handleStatusChanged);
+    socket.on('duration_updated', handleDurationUpdated);
+
+    return () => {
+      leaveRoom('room:quiz');
+      socket.off('competition_status_changed', handleStatusChanged);
+      socket.off('duration_updated', handleDurationUpdated);
+      socket.emit('quiz_taking_ended');
+    };
+  }, [loadQuizData, submitQuiz]);
+
+  const handleTimerExpire = useCallback(() => {
+    submitQuiz('Time expired (Auto-submitted at 0:00)');
   }, [submitQuiz]);
 
   // Anti-Cheat: Visibility Change / Tab Switch detection
@@ -242,15 +298,6 @@ export default function QuizActive() {
     localStorage.setItem(`quiz_answers_${rollNumber}`, JSON.stringify(updated));
   };
 
-  // Format mm:ss
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
-
-  const timerClass = timeLeft < 60 ? 'critical' : timeLeft < 120 ? 'warning' : 'normal';
-
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
   const answeredCount = Object.keys(answers).length;
@@ -308,11 +355,8 @@ export default function QuizActive() {
           </div>
         </div>
 
-        {/* 5-minute Countdown Timer */}
-        <div className={`quiz-timer ${timerClass}`}>
-          <Timer size={20} />
-          <span>{formatTime(timeLeft)}</span>
-        </div>
+        {/* High-Performance Isolated Countdown Timer */}
+        <QuizTimerHUD durationSeconds={durationSeconds} onExpire={handleTimerExpire} />
 
         <div className="hud-actions">
           <div className="hud-answered-stat">
@@ -472,9 +516,35 @@ export default function QuizActive() {
               </div>
             </div>
           </div>
+        ) : loadError ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '48px 24px', 
+            background: 'var(--bg-card)', 
+            borderRadius: '16px', 
+            border: '1px solid var(--border-subtle)', 
+            margin: '40px auto', 
+            maxWidth: '500px' 
+          }}>
+            <AlertOctagon size={48} color="var(--error)" style={{ margin: '0 auto 16px' }} />
+            <h3 style={{ fontSize: '1.35rem', color: 'var(--error)', marginBottom: '8px', fontWeight: '700' }}>
+              Unable to Load Questions
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.92rem', lineHeight: '1.6' }}>
+              {loadError}
+            </p>
+            <button 
+              className="btn btn-primary" 
+              onClick={loadQuizData} 
+              style={{ margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
+            >
+              <RotateCcw size={16} /> Retry Loading Questions
+            </button>
+          </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '60px' }}>
-            <p>Loading questions...</p>
+          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+            <div className="spinner" style={{ margin: '0 auto 16px', width: '36px', height: '36px' }} />
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem' }}>Loading questions securely...</p>
           </div>
         )}
       </div>
